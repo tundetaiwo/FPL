@@ -1,3 +1,5 @@
 /Untitled-1.py
-/node_modyules/
+/node_modules/
 /venv
+*/__pycache__
+/__pycache__
