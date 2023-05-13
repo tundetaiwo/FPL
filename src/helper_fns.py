@@ -1,6 +1,7 @@
 import datetime
 import json
-from datetime import datetime, timedelta
+
+# from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -12,9 +13,12 @@ import requests
 class Fantasy:
     """_summary_"""
 
-    def __init__(self, gameweek: int):
-
+    def __init__(self, gameweek: int = None):
         # --  Error Handling -- #
+
+        # -- ping api for current gameweek -- #
+        if gameweek == None:
+            gameweek = self.get_gameweek()
 
         # -- Overall Player Data -- #
         response = requests.get(
@@ -22,6 +26,7 @@ class Fantasy:
         )
         fpl_json = json.loads(response.content)
 
+        # -- Columns we're interested in  -- #
         columns = [
             "first_name",
             "second_name",
@@ -56,6 +61,7 @@ class Fantasy:
 
         team_dict = pd.Series(team_df["id"].values, index=team_df["name"].values)
 
+        # -- create dictionary of players and respective IDs -- #
         player_dict_invalid = []
         for id, name in id_dict.items():
             try:
@@ -76,11 +82,31 @@ class Fantasy:
         # dict of id: "name"
         self.player_dict = {name: id for id, name in id_dict.items()}
         self.pos_dict = pos_dict
+
         # TODO: Create a new name for this
         self.players_df = players_df
-        self.current_gw = gameweek
 
         # Create Dictionary of player names and IDs
+
+    def get_gameweek(self):
+        """Method to get current gameweek from FPL API"""
+
+        url = "https://fantasy.premierleague.com/api/bootstrap-static/"
+
+        response = requests.get(url)
+        data = response.json()
+
+        current_time = datetime.datetime.now()
+
+        for gameweek in data["events"]:
+            deadline_time = datetime.datetime.strptime(
+                gameweek["deadline_time"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            if deadline_time > current_time:
+                current_gameweek = gameweek["id"] - 1
+                break
+
+        print(f"The current gameweek is {current_gameweek}.")
 
     def get_user(self, user_id: int, gameweek: int = None) -> pd.DataFrame:
         """Method to retrieve user team information from FPL API
@@ -242,78 +268,3 @@ class Fantasy:
             )
             self.recent_form.update({player_id: recent_df.total_points.mean()})
 
-
-def clean_data():
-    """
-    Args:
-    :param param1: asda
-    """
-
-    players_df.replace({"team": "team", "element_type": pos_dict}, inplace=True)
-
-    teams_df = pd.DataFrame(players["teams"])
-    fixtures_df = pd.DataFrame(players["events"])
-    today = datetime.now().timestamp()
-    fixtures_df = fixtures_df.loc[fixtures_df.deadline_time_epoch > today]
-    if check_update(fixtures_df) == False:
-        raise Exception("Game Week too far away.")
-
-    gameweek = fixtures_df.iloc[0].id
-    # players_df = players_df[columns]
-    players_df.chance_of_playing_next_round = (
-        players_df.chance_of_playing_next_round.fillna(100.0)
-    )
-    players_df.chance_of_playing_this_round = (
-        players_df.chance_of_playing_this_round.fillna(100.0)
-    )
-    fixtures = get(
-        "https://fantasy.premierleague.com/api/fixtures/?event=" + str(gameweek)
-    )
-    fixtures_df = pd.DataFrame(fixtures)
-
-    teams = dict(zip(teams_df.id, teams_df.name))
-    players_df["team_name"] = players_df["team"].map(teams)
-    fixtures_df["team_a_name"] = fixtures_df["team_a"].map(teams)
-    fixtures_df["team_h_name"] = fixtures_df["team_h"].map(teams)
-
-    home_strength = dict(zip(teams_df.id, teams_df.strength_overall_home))
-    away_strength = dict(zip(teams_df.id, teams_df.strength_overall_away))
-
-    fixtures_df["team_a_strength"] = fixtures_df["team_a"].map(away_strength)
-    fixtures_df["team_h_strength"] = fixtures_df["team_h"].map(home_strength)
-
-    fixtures_df = fixtures_df.drop(columns=["id"])
-    a_players = pd.merge(
-        players_df, fixtures_df, how="inner", left_on=["team"], right_on=["team_a"]
-    )
-    h_players = pd.merge(
-        players_df, fixtures_df, how="inner", left_on=["team"], right_on=["team_h"]
-    )
-
-    a_players["diff"] = a_players["team_a_strength"] - a_players["team_h_strength"]
-    h_players["diff"] = h_players["team_h_strength"] - h_players["team_a_strength"]
-
-    players_df = a_players.append(h_players)
-    return players_df, fixtures_df, gameweek
-
-
-def update_team(email, password, id):
-    players_df, fixtures_df, gameweek = get_data()
-
-
-def update_team(email, password, id) -> Tuple:
-    players_df, fixtures_df, gameweek = get_data()
-
-
-def check_update(df: pd.DataFrame):
-
-    today = datetime.now()
-    tomorrow = (today + timedelta(days=1)).timestamp()
-    today = datetime.now().timestamp()
-    df = df.loc[df.deadline_time_epoch > today]
-
-    deadline = df.iloc[0].deadline_time_epoch
-    if deadline < tomorrow:
-        return True
-    else:
-        return False
