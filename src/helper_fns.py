@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 
@@ -8,6 +9,10 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import requests
+
+# -- Define Types -- #
+JSON = int | str | float | bool | None
+JSONObject = dict[str, JSON]
 
 
 class Fantasy:
@@ -20,6 +25,7 @@ class Fantasy:
         if gameweek == None:
             gameweek = self.get_gameweek()
 
+        self.current_gw = gameweek
         # -- Overall Player Data -- #
         response = requests.get(
             "https://fantasy.premierleague.com/api/bootstrap-static/", timeout=30
@@ -106,7 +112,9 @@ class Fantasy:
                 current_gameweek = gameweek["id"] - 1
                 break
 
-        print(f"The current gameweek is {current_gameweek}.")
+        print(f"current gameweek is {current_gameweek}.")
+
+        return current_gameweek
 
     def get_user(self, user_id: int, gameweek: int = None) -> pd.DataFrame:
         """Method to retrieve user team information from FPL API
@@ -154,6 +162,13 @@ class Fantasy:
         )
 
     def get_chips_played(self, user_id: int) -> Dict:
+        """_summary_
+
+        :param user_id: id of user
+        :type user_id: int
+        :return: _description_
+        :rtype: Dict
+        """
         chip_dict = {}
         for gw in range(1, self.current_gw):
             response = requests.get(
@@ -179,7 +194,7 @@ class Fantasy:
 
         Parameters
         ----------
-        `n (int)`: Top n players to return, defaults is 50
+        `n (int)`: Top n players to return, default is 50
         """
 
         top_n_teams = pd.DataFrame()
@@ -226,6 +241,11 @@ class Fantasy:
         )["element_in"].value_counts()
 
     def top_users_chip_history(self, n: int = 50):
+        """TODO: finish writing function
+
+        :param n: _description_, defaults to 50
+        :type n: int, optional
+        """
         max_page = 1 + int(np.ceil(n / 50))
         for i in np.arange(1, max_page):
             # for i in range(1, 101):
@@ -235,36 +255,61 @@ class Fantasy:
                 timeout=30,
             )
 
-    def get_player_info(
-        self, players: str | List[str] = None, window: int = 5
-    ) -> pd.DataFrame:
+    def get_request_sync(self, url: str) -> JSONObject:
+        response = requests.get(url)
+        return response.json()
+
+    async def get_request_async(self, url: str) -> JSONObject:
+        return await asyncio.to_thread(self.get_request_async, url)
+
+    def get_player_info(self, player: str, window: int = 5) -> pd.DataFrame:
         """Methhod to extract information for player(s), such as recent form.
 
-        :param players: _description_, defaults to None
-        :type players: str | List[str], optional
-        :param window: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
-        :type window: int, optional
+        Parameters
+        ----------
+        `player (str)`: Name of player to extract FPL information, defaults to None
+        `window (int)`: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
+
+        Return
+        ------
+        `pd.DataFrame`: Dataframe of player stats.
+
         """
-        if players is None:
-            players = self.id_dict.keys()
 
         self.recent_form = {}
         self.recent_form_graph = {}
-        for player_id in players:
-            response = requests.get(
-                f"https://fantasy.premierleague.com/api/element-summary/{player_id}/"
-            )
-            player_df = pd.DataFrame(json.loads(response.content)["history"])
-            fixtures_df = pd.DataFrame(json.loads(response.content)["fixtures"])
-            recent_df = player_df.query(f"round > {self.current_gw - window}")
-            upcoming_fixtures_df = player_df.query(
-                f"event < {self.current_gw + window}"
-            )[["event", "difficulty", "id"]]
 
-            # TODO: Consider using GW instead of kickoff_time
-            self.recent_form_graph.update(
-                {player_id: px.line(player_df, y="total_points", x="round")}
-                # {player: px.line(recent_form_df, y="total_points", x="kickoff_time")}
-            )
-            self.recent_form.update({player_id: recent_df.total_points.mean()})
+        player_id = self.player_dict[player]
+        response = self.get_request_sync(
+            f"https://fantasy.premierleague.com/api/element-summary/{player_id}/"
+        )
+        player_df = (
+            pd.DataFrame(response["history"])
+            .reset_index()
+            .rename(columns={"index": "event"})
+        )
 
+        fixtures_df = pd.DataFrame(response["fixtures"])
+        recent_df = player_df.query(f"round > {self.current_gw - window}")
+        upcoming_fixtures_df = fixtures_df.query(f"event < {self.current_gw + window}")[
+            ["event", "difficulty", "id"]
+        ]
+
+        # TODO: Consider using GW instead of kickoff_time
+        self.recent_form_graph.update(
+            {player_id: px.scatter(player_df, y="total_points", x="round")}
+            # {player: px.line(recent_form_df, y="total_points", x="kickoff_time")}
+        )
+        self.recent_form.update({player_id: recent_df.total_points.mean()})
+
+        return player_df
+
+    async def get_all_player_info(self, players: List[str]):
+        if players is None:
+            players = self.id_dict.keys()
+
+        player_tuple = asyncio.gather(
+            *[self.get_player_info(player) for player in players]
+        )
+        await player_tuple
+        return player_tuple
