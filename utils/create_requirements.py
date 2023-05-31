@@ -47,7 +47,7 @@ def create_requirements(folder: str, os_names: List[str] = None) -> None:
     else:
         requirements_file_unix = "\n".join(package_list)
         package_list.append("pywin32==304")
-        package_list.sort()
+        package_list.sort(key=str.casefold)
         requirements_file_win = "\n".join(package_list)
 
     for os_type, requirements_file in zip(
