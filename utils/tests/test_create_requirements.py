@@ -16,7 +16,7 @@ class TestCreateRequirements:
 
         write_names = ["test_win", "test_unix"]
         try:
-            create_requirements(folder=SOURCE_DIR, write_names=write_names)
+            create_requirements(folder=SOURCE_DIR, os_names=write_names)
             assert os.path.exists(path_unix)
             assert os.path.exists(path_win)
         finally:
