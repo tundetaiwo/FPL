@@ -22,6 +22,9 @@ def create_requirements(folder: str, write_names: List[str] = None) -> None:
     `None`
 
     """
+    if not os.path.isdir(folder):
+        raise ValueError(f"folder argument: '{folder}' is not a directory.")
+
     if write_names is None:
         write_names = ["win", "unix"]
     os_type = platform.system().lower()
@@ -46,9 +49,6 @@ def create_requirements(folder: str, write_names: List[str] = None) -> None:
         package_list.append("pywin32==304")
         package_list.sort()
         requirements_file_win = "\n".join(package_list)
-
-    if not os.path.isdir(folder):
-        raise ValueError("folder argument is not a directory.")
 
     for os_type, requirements_file in zip(
         write_names, [requirements_file_win, requirements_file_unix]
