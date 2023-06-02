@@ -1,5 +1,4 @@
 """ Script to create requirements for both windows and unix based systems"""
-# %%
 import argparse
 import io
 import os
