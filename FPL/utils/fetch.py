@@ -2,7 +2,6 @@
 import asyncio
 import json
 import ssl
-from typing import Union
 
 import certifi
 import requests
