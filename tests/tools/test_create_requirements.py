@@ -4,7 +4,7 @@ import subprocess
 import pytest
 
 # from ...Definitions import SOURCE_DIR
-from FPL.utils import create_requirements
+from tools import create_requirements
 
 
 class TestCreateRequirements:
