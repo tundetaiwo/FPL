@@ -1,5 +1,6 @@
 """ Script to create requirements for both windows and unix based systems"""
 # %%
+import argparse
 import io
 import os
 import platform
@@ -56,3 +57,18 @@ def create_requirements(folder: str, os_names: List[str] = None) -> None:
         with open(f"{folder}/requirements_{os_type}.txt", "w") as file:
             print(f"{folder}/requirements_{os_type}")
             file.write(requirements_file)
+
+
+if __name__ == "__main__":
+    # Initialize the parser
+    parser = argparse.ArgumentParser(
+        description=" Script to create requirements for both windows and unix based systems"
+    )
+
+    # Add arguments
+    parser.add_argument("--folder", type=str, required=True, help="Input file path")
+
+    # Parse the arguments
+    arg = parser.parse_args()
+    folder = os.path.abspath(arg.folder)
+    create_requirements(folder)
