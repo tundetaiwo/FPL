@@ -14,6 +14,7 @@ def _get_api_url(key: str, gameweek: int = None, id: int = None) -> str:
     ------
     `return`:
 
+    TODO: refactor so it's DRY for gameweek_id dict
     """
 
     static_dict = {
@@ -47,12 +48,12 @@ def _get_api_url(key: str, gameweek: int = None, id: int = None) -> str:
         return static_dict[key]
     elif key in id_dict:
         if not isinstance(id, int):
-            raise ValueError(f"For {key} must pass id value that's an integer.")
+            raise ValueError(f"For {key}, must pass id value that's an integer.")
 
         return id_dict[key]
     elif key in gameweek_dict:
         if not isinstance(gameweek, int):
-            raise ValueError(f"For {key} Must pass gamweek value that's an integer")
+            raise ValueError(f"For {key}, Must pass gamweek value that's an integer")
         if gameweek < 1 or gameweek > 38:
             raise ValueError(
                 f"gameweek must be between 0 and 38. Current Value: {gameweek}"
@@ -62,9 +63,9 @@ def _get_api_url(key: str, gameweek: int = None, id: int = None) -> str:
 
     elif key in gameweek_id_dict:
         if not isinstance(id, int):
-            raise ValueError(f"For {key} must pass id value that's an integer.")
+            raise ValueError(f"For {key} must pass, id value that's an integer.")
         if not isinstance(gameweek, int):
-            raise ValueError(f"For {key} Must pass gamweek value that's an integer")
+            raise ValueError(f"For {key} Must pass, gamweek value that's an integer")
         if gameweek < 1 or gameweek > 38:
             raise ValueError(
                 f"gameweek must be between 0 and 38. Current Value: {gameweek}"
