@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+from functools import lru_cache
 
 # from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
@@ -13,12 +14,13 @@ import requests
 # -- Define Types -- #
 JSON = int | str | float | bool | None
 JSONObject = dict[str, JSON]
+from aiohttp import ClientSession
 
 
 class Fantasy:
     """_summary_"""
 
-    def __init__(self, gameweek: int = None):
+    def __init__(self, gameweek: int = None, session=None):
         # --  Error Handling -- #
 
         # -- ping api for current gameweek -- #
@@ -92,6 +94,8 @@ class Fantasy:
         # TODO: Create a new name for this
         self.players_df = players_df
 
+        self.session = ClientSession()
+
         # Create Dictionary of player names and IDs
 
     def get_gameweek(self):
@@ -116,41 +120,6 @@ class Fantasy:
 
         return current_gameweek
 
-    def get_user(self, user_id: int, gameweek: int = None) -> pd.DataFrame:
-        """Method to retrieve user team information from FPL API
-
-        :param user_id: user id
-        :type user_id: int
-        :param gameweek: gameweek to retrieve. If None then uses current gameweek as default
-        :type gameweek: int, optional
-
-        Returns
-        -------
-        `pd.DataFrame`: DataFrame containing team for specific gameweek
-
-        """
-        if gameweek is None:
-            gameweek = self.current_gw
-        # user_id = 2960212
-        # send request to FPL API
-        response = requests.get(
-            f"https://fantasy.premierleague.com/api/entry/{user_id}/event/{self.current_gw}/picks/",
-            timeout=30,
-        )
-        user_json = json.loads(response.content)
-
-        # get active team
-        active_team = pd.DataFrame(user_json["picks"])
-        active_team["element"].replace(self.id_dict, inplace=True)
-
-        # Use position to get sub positions
-        active_team["position"] = active_team["position"].apply(
-            lambda x: max(0, x - 12)
-        )
-        active_team.rename({"position": "sub_position"}, axis=1, inplace=True)
-
-        return active_team
-
     def get_transfer_history(self, user_id: int) -> pd.DataFrame:
         response = requests.get(
             f"https://fantasy.premierleague.com/api/entry/{user_id}/transfers/"
@@ -161,7 +130,7 @@ class Fantasy:
             json_hist, columns=["element_in", "element_out", "event", "entry"]
         )
 
-    def get_chips_played(self, user_id: int) -> Dict:
+    async def get_chips_played(self, user_id: int) -> Dict:
         """_summary_
 
         :param user_id: id of user
@@ -189,7 +158,15 @@ class Fantasy:
 
         return chip_dict
 
-    def get_top_users(self, n: int = 50) -> pd.DataFrame():
+    # @lru_cache(maxsize=50)
+    async def _get_page(self, i: int, session: ClientSession):
+        response = await session.get(
+            f"https://fantasy.premierleague.com/api/leagues-classic/314/standings/?page_new_entries=1&page_standings={i}&phase=1",
+            ssl=False,
+        )
+        return response.json()
+
+    async def _get_top_users(self, n: int) -> pd.DataFrame():
         """Method to get information of top n users in the overall league table.
 
         Parameters
@@ -199,46 +176,103 @@ class Fantasy:
 
         top_n_teams = pd.DataFrame()
         top_n_transfer_history = pd.DataFrame()
-        max_page = 1 + int(np.ceil(n / 50))
-        for i in np.arange(1, max_page):
-            # for i in range(1, 101):
-            print(f"Completion: {i/max_page:.2%}", end="\r")
-            response = requests.get(
-                f"https://fantasy.premierleague.com/api/leagues-classic/314/standings/?page_new_entries=1&page_standings={i}&phase=1",
-                timeout=30,
+        # Get maximum page nth user would be on
+        page_range = np.arange(1, 1 + int(np.ceil(n / 50)))
+        # fetch pages
+        async with ClientSession() as session:
+            page_list = await asyncio.gather(
+                *(self._get_page(i, session) for i in page_range)
+            )
+            user_urls = []
+            user_ids = []
+            # page_list = await page_list
+            for page in page_list:
+                page = await page
+                print(page.keys())
+                for entry in page["standings"]["results"]:
+                    user_ids.append(entry["id"])
+
+            users_json_list = await asyncio.gather(
+                *(self.get_user(id, session) for id in user_ids)
             )
 
-            overall_league_json = json.loads(response.content)
-            for user in overall_league_json["standings"]["results"]:
-                user_id = user["entry"]
+        return users_json_list
 
-                # get team for user
-                user_team = self.get_user(user_id)
-                user_team["user_id"] = user_id
-                top_n_teams = pd.concat([top_n_teams, user_team], axis=0)
+    async def get_user(
+        self, user_id: int, session: ClientSession, gameweek: int = None
+    ) -> pd.DataFrame:
+        """Method to retrieve user team information from FPL API
 
-                # get transfer history for user
-                top_n_transfer_history = pd.concat(
-                    [top_n_transfer_history, self.get_transfer_history(user_id)], axis=0
-                )
-            # stop when rank is greater than n
-            if user["rank"] == n:
-                print("breaking")
-                break
+        :param user_id: user id
+        :type user_id: int
+        :param gameweek: gameweek to retrieve. If None then uses current gameweek as default
+        :type gameweek: int, optional
 
-        # Clean DataFrames
-        self.top_n_teams = top_n_teams.reset_index(drop=True)
-        self.top_n_transfer_history = top_n_transfer_history.reset_index(
-            drop=True
-        ).replace({"element_in": self.id_dict, "element_out": self.id_dict})
+        Returns
+        -------
+        `pd.DataFrame`: DataFrame containing team for specific gameweek
 
-        # Calculate transfers out/in for top n in the last 3 weeks
-        self.top_n_transfers_out = self.top_n_transfer_history.query(
-            f"event>={self.current_gw-2}"
-        )["element_out"].value_counts()
-        self.top_n_transfers_in = self.top_n_transfer_history.query(
-            f"event>={self.current_gw-2}"
-        )["element_in"].value_counts()
+        """
+        if gameweek is None:
+            gameweek = self.current_gw
+        # user_id = 2960212
+        # send request to FPL API
+        response = await session.get(
+            f"https://fantasy.premierleague.com/api/entry/{user_id}/event/{self.current_gw}/picks/",
+            ssl=False,
+        )
+        user_json = await response.json()
+
+        print(user_json.keys())
+        # get active teamj
+        if "picks" in user_json:
+            active_team = pd.DataFrame(user_json.get("picks"))
+            active_team["element"].replace(self.id_dict, inplace=True)
+        else:
+            active_team = pd.DataFrame()
+
+        # Use position to get sub positions
+        active_team["position"] = active_team["position"].apply(
+            lambda x: max(0, x - 12)
+        )
+        active_team.rename({"position": "sub_position"}, axis=1, inplace=True)
+
+        return active_team
+
+    def get_top_users(self, n: int = 50):
+        return asyncio.run(self._get_top_users(n))
+        # for user in overall_league_json["standings"]["results"]:
+        #     user_id = user["entry"]
+
+        #     # get team for user
+        #     user_team = self.get_user(user_id)
+        #     user_team["user_id"] = user_id
+        #     top_n_teams = pd.concat([top_n_teams, user_team], axis=0)
+
+        #     # get transfer history for us er
+        #     top_n_transfer_history = pd.concat(
+        #         [top_n_transfer_history, self.get_transfer_history(user_id)], axis=0
+        #     )
+        # # stop when rank is greater than n
+        # if user["rank"] == n:
+        #     print("breaking")
+        #     break
+
+        # # Clean DataFrames
+        # self.top_n_teams = top_n_teams.reset_index(drop=True)
+        # self.top_n_transfer_history = top_n_transfer_history.reset_index(
+        #     drop=True
+        # ).replace({"element_in": self.id_dict, "element_out": self.id_dict})
+
+        # # Calculate transfers out/in for top n in the last 3 weeks
+        # self.top_n_transfers_out = self.top_n_transfer_history.query(
+        #     f"event>={self.current_gw-2}"
+        # )["element_out"].value_counts()
+        # self.top_n_transfers_in = self.top_n_transfer_history.query(
+        #     f"event>={self.current_gw-2}"
+        # )["element_in"].value_counts()
+
+        return users_json_list
 
     def top_users_chip_history(self, n: int = 50):
         """TODO: finish writing function
@@ -297,7 +331,7 @@ class Fantasy:
 
         # TODO: Consider using GW instead of kickoff_time
         self.recent_form_graph.update(
-            {player_id: px.scatter(player_df, y="total_points", x="round")}
+            {player_id: px.line(player_df, y="total_points", x="round")}
             # {player: px.line(recent_form_df, y="total_points", x="kickoff_time")}
         )
         self.recent_form.update({player_id: recent_df.total_points.mean()})
