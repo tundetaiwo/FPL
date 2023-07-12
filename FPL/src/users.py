@@ -1,4 +1,3 @@
-# %%
 import asyncio
 import json
 from typing import List
@@ -22,15 +21,12 @@ async def _get_users_async(ids: List[int]):
     `user information json`:
 
     """
-    print(ids)
     urls = [_get_api_url("entry", id) for id in ids]
-    print(urls)
-    print("")
     async with ClientSession() as session:
-        tasks = [fetch_request_async(id, session) for id in ids]
+        tasks = [fetch_request_async(url, session) for url in urls]
         data = await asyncio.gather(*tasks)
     return data
 
 
 def get_users_async(ids: List[int]):
-    asyncio.run(_get_users_async([1231, 13123]))
+    return asyncio.run(_get_users_async(ids))
