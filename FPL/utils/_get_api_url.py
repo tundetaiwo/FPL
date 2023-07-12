@@ -10,6 +10,17 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
 
     `gameweek (int)`: gameweek value to be passed when key is "gameweek" or "picks". Must be between 1 and 38
 
+    Notes
+    -----
+    id:
+        `element`: Remaining fixtures left for PL player as well as previous fixtures and seasons
+        `entry`: Basic info on FPL Manager
+        `history`: A summary of a FPL Manager for each GW up until the current GW. The past season results of a FPL Manager. The chips a FPL Manager has played"
+        `transfers`: All transfers of given team ID
+        `standings`: Information about league with id LID such as name and standings. Add ?page_standings={P} for leagues
+    static:
+        `bootstrap`: Main URL for all premier league players, teams, global gameweek summaries"
+        `fixtures`: A list of all 380 matches that will happen over the season
     Return
     ------
     `return`:
@@ -28,11 +39,11 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
         "element": f"https://fantasy.premierleague.com/api/element-summary/{id}/",
         # Basic info on FPL Manager
         "entry": f"https://fantasy.premierleague.com/api/entry/{id}/",
-        # "A summary of a FPL Manager for each GW up until the current GW. The past season results of a FPL Manager. The chips a FPL Manager has played"
+        # A summary of a FPL Manager for each GW up until the current GW. The past season results of a FPL Manager. The chips a FPL Manager has played"
         "history": f"https://fantasy.premierleague.com/api/entry/{id}/history/",
         # All transfers of given team ID
         "transfers": f"https://fantasy.premierleague.com/api/entry/{id}/transfers/",
-        # "Information about league with id LID such as name and standings. Add ?page_standings={P} for leagues
+        # Information about league with id LID such as name and standings. Add ?page_standings={P} for leagues
         "standings": f"https://fantasy.premierleague.com/api/leagues-classic/{id}/standings/",
     }
     gameweek_dict = {
