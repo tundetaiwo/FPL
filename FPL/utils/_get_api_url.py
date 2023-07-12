@@ -14,13 +14,13 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
     -----
     id:
         `element`: Remaining fixtures left for PL player as well as previous fixtures and seasons
-        `entry`: Basic info on FPL Manager
-        `history`: A summary of a FPL Manager for each GW up until the current GW. The past season results of a FPL Manager. The chips a FPL Manager has played"
-        `transfers`: All transfers of given team ID
-        `standings`: Information about league with id LID such as name and standings. Add ?page_standings={P} for leagues
+        `entry`: Basic info on FPL Manager\n
+        `history`: A summary of a FPL Manager for each GW up until the current GW. The past season results of a FPL Manager. The chips a FPL Manager has played"\n
+        `transfers`: All transfers of given team ID\n
+        `standings`: Information about league with id LID such as name and standings. Add ?page_standings={P} for leagues\n
     static:
-        `bootstrap`: Main URL for all premier league players, teams, global gameweek summaries"
-        `fixtures`: A list of all 380 matches that will happen over the season
+        `bootstrap`: Main URL for all premier league players, teams, global gameweek summaries\n
+        `fixtures`: A list of all 380 matches that will happen over the season\n
     Return
     ------
     `return`:
