@@ -1,4 +1,4 @@
-def _get_api_url(key: str, gameweek: int = None, id: int = None) -> str:
+def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
     """
     Function to retrieve urls for fantasy football api
 
@@ -43,7 +43,6 @@ def _get_api_url(key: str, gameweek: int = None, id: int = None) -> str:
         # Squad picks of team TID for week GW. Both TID and GW should be numeric
         "picks": f"https://fantasy.premierleague.com/api/entry/{id}/event/{gameweek}/picks/",
     }
-
     if key in static_dict:
         return static_dict[key]
     elif key in id_dict:
