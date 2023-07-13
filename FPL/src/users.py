@@ -63,3 +63,5 @@ def get_top_users_id(n: int = 50) -> List[int]:
 
     """
     data = asyncio.run(_get_top_users_id(n))
+
+    return data
