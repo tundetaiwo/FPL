@@ -37,5 +37,5 @@ async def fetch_request_async(url: str, session: ClientSession) -> JSONObject:
     `session (ClientSession)`: open aiohttp ClientSession
     """
 
-    async with session.get(url, ssl=ssl_context) as html:
-        return await html.text()
+    async with session.get(url, ssl=ssl_context) as response:
+        return await response.json()
