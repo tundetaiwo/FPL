@@ -8,12 +8,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
 
-from FPL.src import (
-    basic_player_df,
-    get_player_id_dict,
-    get_player_info,
-    get_team_id_dict,
-)
+from FPL.src import (basic_player_df, get_player_id_dict, get_player_info,
+                     get_team_id_dict)
 from FPL.utils import POS_DICT, _get_api_url, fetch_request
 from tools.get_lan_ip import get_lan_ip
 
@@ -148,15 +144,15 @@ class EDA_FPL:
                         self.bootstrap_features.index(dd_feature) + 1
                     ]
 
-            # -- positional filtering -- #
+            # -- Filter data to relevant features -- #
             df_out = self.bootstrap_df[
-                ["first_name", "second_name", "position"] + [dd_feature]
+                ["full_name", "position", "now_cost"] + [dd_feature]
             ].sort_values(by=dd_feature, ascending=not sum_bs)
 
+            # -- positional filtering -- #
             idx = df_out["position"].isin(dd_pos)
             df_out = df_out[idx]
 
-            # print(df_out.head())
             return [df_out.to_dict("records"), dd_feature]
 
     def _prepare_run(self) -> None:
