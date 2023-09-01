@@ -200,7 +200,7 @@ class EDA_FPL:
         self._prepare_run()
 
         if open_window:
-            webbrowser.open_new_tab(url=f"{host}: port")
+            webbrowser.open_new(url=f"http://{host}:port/")
 
         self.app.run(host=host, port=port, debug=debug)
 
