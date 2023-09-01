@@ -8,8 +8,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
 
-from FPL.src import (basic_player_df, get_player_id_dict, get_player_info,
-                     get_team_id_dict)
+from FPL.src import (
+    basic_player_df,
+    get_player_id_dict,
+    get_player_info,
+    get_team_id_dict,
+)
 from FPL.utils import POS_DICT, _get_api_url, fetch_request
 from tools.get_lan_ip import get_lan_ip
 
@@ -23,7 +27,7 @@ class EDA_FPL:
         self.tab: dict = {}
         self.bootstrap_plots: dict = {}
 
-    def create_top_n(self):
+    def generate_top_n(self):
         """
         method to create top n
         Parameters
@@ -40,28 +44,87 @@ class EDA_FPL:
         self.teams_id_dict = get_team_id_dict()
         # TODO: delete??
         bootstrap_df: pd.DataFrame = basic_player_df()
-        self.bootstrap_features = [
-            "points_per_game",
-            "total_points",
-            "team",
-            "now_cost",
-            "id",
-            "selected_by_percent",
-            "form",
+        # fields that are always shown
+        # TODO: maybe create overall rename dict and place in utils/definitions?
+        always_fields_dict = {
+            "full_name": "full name",
+            "team": "team",
+            "element_type": "position",
+            "now_cost": "price",
+        }
+
+        core_fields_dict = {
+            "event_points": "points this week",
+            "points_per_game": "points per game",
+            "total_points": "total points",
+            "form": "form",
+            "value_form": "value form",
+            "yellow_cards": "yellow cards",
+            "red_cards": "red cards",
+            "goals_scored": "goals scored",
+            "expected_goals": "expected goals",
+            "expected_goals_per_90": "expected goals per 90",
+            "assists": "assists",
+            "selected_by_percent": "ownership (%)",
+            "transfers_in_event": "transfers in event",
+            "transfers_out_event": "transfers out event",
+        }
+
+        self.gk_fields = [
             "saves",
             "saves_per_90",
-            "yellow_cards",
-            "red_cards",
+            "clean_sheets",
+            "clean_sheets_per_90",
+        ]
+        self.def_fields = [
+            "clean_sheets",
+            "clean_sheets_per_90",
         ]
         bootstrap_df["full_name"] = (
             bootstrap_df["first_name"] + " " + bootstrap_df["second_name"]
         )
-        self.bootstrap_df = bootstrap_df.rename(
-            columns={"element_type": "position"}
-        ).replace({"team": self.teams_id_dict, "position": POS_DICT})
+
+        # -- bootstrap dataframme cleanup -- #
+        self.bootstrap_df = (
+            bootstrap_df.rename(columns=dict(**core_fields_dict, **always_fields_dict))
+            .astype({"ownership (%)": float})
+            .replace({"team": self.teams_id_dict, "position": POS_DICT})
+            .assign(price=lambda x: x["price"] / 10)
+        )
+
+        self.core_fields = list(core_fields_dict.values())
+        self.always_fields = list(always_fields_dict.values())
 
         # Positions
         self.pos_list = list(POS_DICT.values())
+
+    def generate_top_players(self, n: int = 1000):
+        """
+
+        Parameters
+        ----------
+        `n (int)`: number of top players to find, for example if 1000 then will extract data for top 1000 ranked players
+
+        Return
+        ------
+        `None`
+
+        """
+        ...
+
+    def generate_leagues(self, id: int = None):
+        """
+
+        Parameters
+        ----------
+        `id (int)`: TODO: maybe need this
+
+        Return
+        ------
+        `return`:
+
+        """
+        ...
 
     def _build_tabs(self) -> None:
         if hasattr(self, "bootstrap_df"):
@@ -72,8 +135,8 @@ class EDA_FPL:
                     [
                         html.H2("Feature"),
                         dcc.Dropdown(
-                            options=self.bootstrap_features,
-                            value=self.bootstrap_features[0],
+                            options=self.core_fields,
+                            value=self.core_fields[0],
                             id="summary_dropdown",
                         ),
                         html.Button("<- Prev", id="prev_btn", n_clicks=0),
@@ -127,27 +190,25 @@ class EDA_FPL:
             # -- button functionality -- #
             ctx = callback_context
             if ctx.triggered[0]["prop_id"] == "prev_btn.n_clicks":
-                if self.bootstrap_features.index(dd_feature) == 0:
-                    dd_feature = self.bootstrap_features[-1]
+                if self.core_fields.index(dd_feature) == 0:
+                    dd_feature = self.core_fields[-1]
                 else:
-                    dd_feature = self.bootstrap_features[
-                        self.bootstrap_features.index(dd_feature) - 1
+                    dd_feature = self.core_fields[
+                        self.core_fields.index(dd_feature) - 1
                     ]
             elif ctx.triggered[0]["prop_id"] == "next_btn.n_clicks":
-                if (
-                    self.bootstrap_features.index(dd_feature)
-                    == len(self.bootstrap_features) - 1
-                ):
-                    dd_feature = self.bootstrap_features[0]
+                if self.core_fields.index(dd_feature) == len(self.core_fields) - 1:
+                    dd_feature = self.core_fields[0]
                 else:
-                    dd_feature = self.bootstrap_features[
-                        self.bootstrap_features.index(dd_feature) + 1
+                    dd_feature = self.core_fields[
+                        self.core_fields.index(dd_feature) + 1
                     ]
 
             # -- Filter data to relevant features -- #
-            df_out = self.bootstrap_df[
-                ["full_name", "position", "now_cost"] + [dd_feature]
-            ].sort_values(by=dd_feature, ascending=not sum_bs)
+            df_out = self.bootstrap_df[self.always_fields + [dd_feature]].sort_values(
+                by=dd_feature, ascending=not sum_bs
+            )
+            df_out.insert(0, "rank", range(1, self.bootstrap_df.shape[0] + 1))
 
             # -- positional filtering -- #
             idx = df_out["position"].isin(dd_pos)
@@ -206,15 +267,17 @@ class EDA_FPL:
 
 
 # %%
-team_dict = get_team_id_dict()
+# team_dict = get_team_id_dict()
 rpt = EDA_FPL(3)
-rpt.create_top_n()
+rpt.generate_top_n()
 rpt.run(debug=True, open_window=False)
+# rpt.run(open_window=True)
 
 
 # %% bootstrap dataframe analysis
 
 if __name__ != "__main__":
+    # %%
     # pd.to_pickle(get_player_info(), "./player_info.pkl")
     player_info = pd.read_pickle("./player_info.pkl")
     # # %% load in data
