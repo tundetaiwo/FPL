@@ -7,52 +7,38 @@ from FPL.utils._get_api_url import _get_api_url
 from FPL.utils.fetch import fetch_request_async
 
 
-async def _get_users_async(ids: List[int], gameweek: int):
-    """
-    Function to asynchronously retrieve user information
-
-    Parameters
-    ----------
-    `ids (List[int])`:
-
-    `gameweek (int)`: gameweek up to retrieve manager team information for
-
-    Return
-    ------
-    `user information json`:
-
-    """
-    urls = [_get_api_url("picks", id, gameweek) for id in ids]
-    async with ClientSession() as session:
-        tasks = [fetch_request_async(url, session) for url in urls]
-        data = await asyncio.gather(*tasks)
-    return data
-
-
 def get_users_async(ids: List[int], gameweek: int):
     """
     Wrapper function to asynchronously call _get_users_async
     """
-    # TODO: return a dataframe somehow
+
+    async def _get_users_async(ids: List[int], gameweek: int):
+        """
+        Function to asynchronously retrieve user information
+
+        Parameters
+        ----------
+        `ids (List[int])`:
+
+        `gameweek (int)`: gameweek up to retrieve manager team information for
+
+        Return
+        ------
+        `user information json`:
+
+        """
+        urls = [_get_api_url("picks", id, gameweek) for id in ids]
+        async with ClientSession() as session:
+            tasks = [fetch_request_async(url, session) for url in urls]
+            data = await asyncio.gather(*tasks)
+        return data
+
     return asyncio.run(_get_users_async(ids, gameweek=gameweek))
-
-
-async def _get_top_users_id(n) -> List[int]:
-    """
-    TODO
-    """
-    pages = range((n // 50) + 2)
-    urls = [_get_api_url("standings", page) for page in pages]
-    async with ClientSession() as session:
-        tasks = [fetch_request_async(url, session) for url in urls]
-        data = await asyncio.gather(*tasks)
-
-    return data
 
 
 def get_top_users_id(n: int = 50) -> List[int]:
     """
-    Wrapper function to asynchronously call _get_top_users_id
+    Function to asynchronously get the IDs of the top n users.
 
     Parameters
     ----------
@@ -63,6 +49,16 @@ def get_top_users_id(n: int = 50) -> List[int]:
     `list`: list of ids of top n users in ascending order
 
     """
+
+    async def _get_top_users_id(n) -> List[int]:
+        pages = range((n // 50) + 2)
+        urls = [_get_api_url("standings", page) for page in pages]
+        async with ClientSession() as session:
+            tasks = [fetch_request_async(url, session) for url in urls]
+            data = await asyncio.gather(*tasks)
+
+        return data
+
     list_of_pages = asyncio.run(_get_top_users_id(n))
     top_ids = []
     # start from 1 as first page is always empty
