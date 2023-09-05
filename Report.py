@@ -8,18 +8,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
 
-from FPL.src import (
-    basic_player_df,
-    get_player_id_dict,
-    get_player_info,
-    get_team_id_dict,
-)
+from FPL.src import (basic_player_df, get_player_id_dict, get_player_info,
+                     get_team_id_dict)
 from FPL.utils import POS_DICT, _get_api_url, fetch_request
 from tools.get_lan_ip import get_lan_ip
 
 
 # %%
-class EDA_FPL:
+class FPLReport:
     def __init__(self, gw: int):
         self.gw: int = gw
         self.app: Dash = None
@@ -27,7 +23,7 @@ class EDA_FPL:
         self.tab: dict = {}
         self.bootstrap_plots: dict = {}
 
-    def generate_top_n(self):
+    def generate_summary(self):
         """
         method to create top n
         Parameters
@@ -110,7 +106,7 @@ class EDA_FPL:
         `None`
 
         """
-        ...
+        top_user_id = get_top_users_id(n)
 
     def generate_leagues(self, id: int = None):
         """
@@ -225,7 +221,36 @@ class EDA_FPL:
         `None`
 
         """
-        self.app = Dash(__name__)
+        from dash import Dash, html
+
+        # external JavaScript files
+        external_scripts = [
+            "https://www.google-analytics.com/analytics.js",
+            {"src": "https://cdn.polyfill.io/v2/polyfill.min.js"},
+            {
+                "src": "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.10/lodash.core.js",
+                "integrity": "sha256-Qqd/EfdABZUcAxjOkMi8eGEivtdTkh3b65xCZL4qAQA=",
+                "crossorigin": "anonymous",
+            },
+        ]
+
+        # external CSS stylesheets
+        external_stylesheets = [
+            "https://codepen.io/chriddyp/pen/bWLwgP.css",
+            {
+                "href": "https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css",
+                "rel": "stylesheet",
+                "integrity": "sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO",
+                "crossorigin": "anonymous",
+            },
+        ]
+
+        self.app = Dash(
+            __name__,
+            external_scripts=external_scripts,
+            external_stylesheets=external_stylesheets,
+        )
+
         self._build_tabs()
         self._build_layout()
         self._build_callback_fns()
@@ -268,8 +293,8 @@ class EDA_FPL:
 
 # %%
 # team_dict = get_team_id_dict()
-rpt = EDA_FPL(3)
-rpt.generate_top_n()
+rpt = FPLReport(3)
+rpt.generate_summary()
 rpt.run(debug=True, open_window=False)
 # rpt.run(open_window=True)
 
@@ -294,3 +319,5 @@ if __name__ != "__main__":
     df["element_type"].value_counts()
     df["pos"] = df["element_type"].replace(POS_DICT)
     df["pos"]
+
+# %%
