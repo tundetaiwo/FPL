@@ -1,4 +1,11 @@
-def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
+from typing import Optional
+
+
+def _get_api_url(
+    key: str,
+    id: Optional[int] = None,
+    gameweek: Optional[int] = None,
+) -> str:
     """
     Function to retrieve urls for fantasy football api
 
@@ -9,6 +16,7 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
     `id (int)`: id value to be passed when key is "entry", "element", "history", "transfers", "standings" and "picks"
 
     `gameweek (int)`: gameweek value to be passed when key is "gameweek" or "picks". Must be between 1 and 38
+
 
     Notes
     -----
@@ -21,9 +29,12 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
     static:
         `bootstrap`: Main URL for all premier league players, teams, global gameweek summaries\n
         `fixtures`: A list of all 380 matches that will happen over the season\n
+        `picks`: Squad information for given manager ID and gameweek\n
+
     Return
     ------
-    `return`:
+    `str`: url of api requested
+
 
     TODO: refactor so it's DRY for gameweek_id dict
     """
@@ -43,7 +54,7 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
         "history": f"https://fantasy.premierleague.com/api/entry/{id}/history/",
         # All transfers of given team ID
         "transfers": f"https://fantasy.premierleague.com/api/entry/{id}/transfers/",
-        # Information about league with id LID such as name and standings. Add ?page_standings={P} for leagues
+        # Information about league with id such as name and standings. Add ?page_standings={P} for leagues
         "standings": f"https://fantasy.premierleague.com/api/leagues-classic/{id}/standings/",
     }
     gameweek_dict = {
@@ -51,31 +62,30 @@ def _get_api_url(key: str, id: int = None, gameweek: int = None) -> str:
         "gameweek": f"https://fantasy.premierleague.com/api/event/{gameweek}/live/",
     }
     gameweek_id_dict = {
-        # Squad picks of team TID for week GW. Both TID and GW should be numeric
+        # Squad picks of team LID for week GW. Both TID and GW should be numeric
         "picks": f"https://fantasy.premierleague.com/api/entry/{id}/event/{gameweek}/picks/",
     }
     if key in static_dict:
         return static_dict[key]
     elif key in id_dict:
         if not isinstance(id, int):
-            raise ValueError(f"For {key}, must pass id value that's an integer.")
+            raise ValueError(f"For {key=}, must pass id value that's an integer.")
 
         return id_dict[key]
     elif key in gameweek_dict:
         if not isinstance(gameweek, int):
-            raise ValueError(f"For {key}, Must pass gamweek value that's an integer")
+            raise ValueError(f"For {key=}, must pass gamweek value that's an integer")
         if gameweek < 1 or gameweek > 38:
             raise ValueError(
                 f"gameweek must be between 0 and 38. Current Value: {gameweek}"
             )
 
         return gameweek_dict[key]
-
     elif key in gameweek_id_dict:
         if not isinstance(id, int):
-            raise ValueError(f"For {key} must pass, id value that's an integer.")
+            raise ValueError(f"For {key=} must pass, id value that's an integer.")
         if not isinstance(gameweek, int):
-            raise ValueError(f"For {key} Must pass, gamweek value that's an integer")
+            raise ValueError(f"For {key=} Must pass, gamweek value that's an integer")
         if gameweek < 1 or gameweek > 38:
             raise ValueError(
                 f"gameweek must be between 0 and 38. Current Value: {gameweek}"
