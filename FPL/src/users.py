@@ -48,11 +48,17 @@ def get_top_users_id(n: int = 50) -> List[int]:
     ------
     `list`: list of ids of top n users in ascending order
 
+    Notes
+    -----
+
+    Be wary season to season! id of overall league might change in the API.
+    2023: '314
     """
 
     async def _get_top_users_id(n) -> List[int]:
-        pages = range((n // 50) + 2)
-        urls = [_get_api_url("standings", page) for page in pages]
+        pages = range((n // 50) + 1)
+        urls = [_get_api_url("standings", id=314, page=page) for page in pages]
+        # urls = [_get_api_url("standings", page, league=314) for page in pages]
         async with ClientSession() as session:
             tasks = [fetch_request_async(url, session) for url in urls]
             data = await asyncio.gather(*tasks)
@@ -65,6 +71,6 @@ def get_top_users_id(n: int = 50) -> List[int]:
     for page in list_of_pages[1:]:
         # Happy to make the assumption there will always be 50 players on a page
         for player in range(50):
-            top_ids.append(page.get("standings")["results"][player]["id"])
+            top_ids.append(page.get("standings")["results"][player]["entry"])
 
     return top_ids[:n]
