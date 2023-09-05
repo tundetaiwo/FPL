@@ -11,3 +11,6 @@ SUBWAY_LEAGUE = {
     "Penny": 1092883,
     "James": 5924210,
 }
+
+# POS_DICT = {"GK": 1, "DEF": 2, "MID": 3, "FWD": 4}
+POS_DICT = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
