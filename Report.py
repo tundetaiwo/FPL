@@ -1,6 +1,6 @@
 # %%
 import webbrowser
-from typing import Dict
+from typing import Dict, Optional
 
 import dash_daq as daq
 import pandas as pd
@@ -8,15 +8,24 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
 
-from FPL.src import (basic_player_df, get_player_id_dict, get_player_info,
-                     get_team_id_dict)
-from FPL.utils import POS_DICT, _get_api_url, fetch_request
+from FPL.src import (
+    basic_player_df,
+    get_player_id_dict,
+    get_player_info,
+    get_team_id_dict,
+    get_top_users_id,
+    get_users,
+)
+from FPL.utils import POS_DICT, _get_api_url, fetch_request, get_current_gw
 from tools.get_lan_ip import get_lan_ip
 
 
 # %%
 class FPLReport:
-    def __init__(self, gw: int):
+    def __init__(self, gw: Optional[int] = None):
+        if gw is None:
+            gw = get_current_gw()
+
         self.gw: int = gw
         self.app: Dash = None
 
