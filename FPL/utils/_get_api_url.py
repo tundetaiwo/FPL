@@ -5,6 +5,7 @@ def _get_api_url(
     key: str,
     id: Optional[int] = None,
     gameweek: Optional[int] = None,
+    page: int = 1,
 ) -> str:
     """
     Function to retrieve urls for fantasy football api
@@ -17,6 +18,7 @@ def _get_api_url(
 
     `gameweek (int)`: gameweek value to be passed when key is "gameweek" or "picks". Must be between 1 and 38
 
+    `page (int)`: page to look for in leauge (50 managers per page), default=1
 
     Notes
     -----
@@ -54,8 +56,6 @@ def _get_api_url(
         "history": f"https://fantasy.premierleague.com/api/entry/{id}/history/",
         # All transfers of given team ID
         "transfers": f"https://fantasy.premierleague.com/api/entry/{id}/transfers/",
-        # Information about league with id such as name and standings. Add ?page_standings={P} for leagues
-        "standings": f"https://fantasy.premierleague.com/api/leagues-classic/{id}/standings/",
     }
     gameweek_dict = {
         # Stats of all PL players that played in GW
@@ -64,6 +64,10 @@ def _get_api_url(
     gameweek_id_dict = {
         # Squad picks of team LID for week GW. Both TID and GW should be numeric
         "picks": f"https://fantasy.premierleague.com/api/entry/{id}/event/{gameweek}/picks/",
+    }
+    standings_dict = {
+        # Information about league with id such as name and standings. Add ?page_standings={P} for leagues
+        "standings": f"https://fantasy.premierleague.com/api/leagues-classic/314/standings/?page_new_entries=1&page_standings={page}&phase=1",
     }
     if key in static_dict:
         return static_dict[key]
@@ -79,8 +83,12 @@ def _get_api_url(
             raise ValueError(
                 f"gameweek must be between 0 and 38. Current Value: {gameweek}"
             )
-
         return gameweek_dict[key]
+    elif key in standings_dict:
+        if not isinstance(page, int):
+            raise ValueError(f"For {key=}, must pass page value that's an integer")
+
+        return standings_dict[key]
     elif key in gameweek_id_dict:
         if not isinstance(id, int):
             raise ValueError(f"For {key=} must pass, id value that's an integer.")
