@@ -67,7 +67,7 @@ def _get_api_url(
     }
     standings_dict = {
         # Information about league with id such as name and standings. Add ?page_standings={P} for leagues
-        "standings": f"https://fantasy.premierleague.com/api/leagues-classic/314/standings/?page_new_entries=1&page_standings={page}&phase=1",
+        "standings": f"https://fantasy.premierleague.com/api/leagues-classic/{id}/standings/?page_new_entries=1&page_standings={page}&phase=1",
     }
     if key in static_dict:
         return static_dict[key]
