@@ -1,13 +1,14 @@
 import asyncio
-from typing import List
+from typing import Dict, List
 
 from aiohttp import ClientSession
 
+from FPL.src import get_team_id_dict
 from FPL.utils._get_api_url import _get_api_url
-from FPL.utils.fetch import fetch_request_async
+from FPL.utils.fetch import fetch_request, fetch_request_async
 
 
-def get_users_async(ids: List[int], gameweek: int):
+def get_users(ids: List[int], gameweek: int):
     """
     Wrapper function to asynchronously call _get_users_async
     """
@@ -56,7 +57,7 @@ def get_top_users_id(n: int = 50) -> List[int]:
     """
 
     async def _get_top_users_id(n) -> List[int]:
-        pages = range((n // 50) + 1)
+        pages = range((n // 50) + 2)
         urls = [_get_api_url("standings", id=314, page=page) for page in pages]
         # urls = [_get_api_url("standings", page, league=314) for page in pages]
         async with ClientSession() as session:
@@ -74,3 +75,52 @@ def get_top_users_id(n: int = 50) -> List[int]:
             top_ids.append(page.get("standings")["results"][player]["entry"])
 
     return top_ids[:n]
+
+
+def get_manager_leagues_id(id: int) -> List[int]:
+    """
+
+    Parameters
+    ----------
+    `param1 (type)`:
+
+    Return
+    ------
+    `return`:
+
+    """
+
+    url = _get_api_url("entry", id)
+    data = fetch_request(url)
+    league_ids = []
+    for league in data["leagues"]["classic"]:
+        # All non-custom leagues have ids from 1 to around 320
+        if league["id"] < 320:
+            continue
+        league_ids.append(league["id"])
+    return league_ids
+
+
+def get_league_data(ids: List[int]) -> None:
+    """
+    function to extract league data
+
+    Parameters
+    ----------
+    `ids (List[int])`: list of ids
+
+    Return
+    ------
+    `return`:
+
+    """
+    urls = [_get_api_url("standings", id=1746319) for id in ids]
+
+    async def _get_league_data(ids):
+        async with ClientSession() as session:
+            tasks = [fetch_request_async(url, session) for url in urls]
+            data = await asyncio.gather(*tasks)
+        return data
+    
+
+    return asyncio.run(_get_league_data(ids))
