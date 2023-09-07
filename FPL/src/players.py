@@ -10,7 +10,16 @@ from FPL.utils.fetch import fetch_request, fetch_request_async
 
 
 # TODO should I make async??
-def basic_player_df():
+def basic_player_df() -> pd.DataFrame:
+    """
+    Function that returns the current summary of players
+
+    Return
+    ------
+    `pd.DataFrame`: summary dataframe of player stats up to current gameweek
+
+    """
+
     fpl_json = fetch_request(_get_api_url("bootstrap"))
     # fpl_json = response.loads(response.content)
 
