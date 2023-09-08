@@ -79,7 +79,8 @@ def get_top_users_id(n: int = 50) -> List[int]:
 
 def get_manager_leagues_id(id: int) -> List[int]:
     """
-
+    Function to get custom league ids a FPL manager has joined.
+    
     Parameters
     ----------
     `param1 (type)`:
@@ -103,7 +104,7 @@ def get_manager_leagues_id(id: int) -> List[int]:
 
 def get_league_data(ids: List[int]) -> None:
     """
-    function to extract league data
+    Function to extract league data
 
     Parameters
     ----------
