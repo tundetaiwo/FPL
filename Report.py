@@ -1,8 +1,10 @@
 # %%
+import time
 import webbrowser
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import dash_daq as daq
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,6 +12,8 @@ from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
 
 from FPL.src import (
     basic_player_df,
+    get_league_data,
+    get_manager_leagues_id,
     get_player_id_dict,
     get_player_info,
     get_team_id_dict,
@@ -116,26 +120,90 @@ class FPLReport:
 
         """
         top_user_id = get_top_users_id(n)
+        top_users = get_users(top_user_id, self.gw)
 
-    def generate_leagues(self, id: int = None):
+        top_user_players = []
+        i = 0
+        for user in top_users:
+            i += 1
+            top_user_players.append([player["element"] for player in user["picks"]])
+        top_user_players = np.array(top_user_players).ravel()
+        unique, count = np.unique(top_user_players, return_counts=True)
+        self.overall_top_n_tbl = (
+            pd.DataFrame(
+                {"player": unique, "count": count, "ownership (%)": 100 * count / n}
+            )
+            .replace({"player": get_player_id_dict()})
+            .sort_values("count", ascending=False)
+        )
+        self.overall_top_n_bar = px.bar(
+            self.overall_top_n_tbl.head(30),
+            # self.overall_top_n_tbl.query("count > 50"),
+            x="player",
+            y="count",
+            title=f"Top {n} ownership",
+        )
+        self.n = n
+
+    def generate_player_analysis(self, players: Optional[List[str]]) -> None:
         """
+        Method to generate analysis information of premier league players
 
         Parameters
         ----------
-        `id (int)`: TODO: maybe need this
+        `players (List[str])`: list of players to perform analysis on
 
         Return
         ------
-        `return`:
+        `None`
 
         """
         ...
+
+    def generate_leagues(self, id: Optional[List[int]] = None):
+        """
+        Method to generate information on leagues
+
+        Parameters
+        ----------
+        `id (List[int])`: player id to get league information
+
+        Return
+        ------
+        `None`
+
+        """
+        league_ids = get_manager_leagues_id(id)
+        league_data = get_league_data(league_ids)
+
+        self.user_league_dict = {}
+        for data in league_data:
+            league_name = data["league"]["name"]
+            print(league_name)
+            self.user_league_dict[league_name] = pd.DataFrame(
+                data["standings"]["results"]
+            )[
+                [
+                    "rank",
+                    "player_name",
+                    "entry_name",
+                    "event_total",
+                    "total",
+                ]
+            ].rename(
+                columns={
+                    "player_name": "player name",
+                    "entry_name": "team name",
+                    "last_rank": "previous_rank",
+                    "event_total": "round total",
+                }
+            )
 
     def _build_tabs(self) -> None:
         if hasattr(self, "bootstrap_df"):
             self.tab["overall_summary"] = dcc.Tab(
                 label="Overall Summary",
-                value="Overall_Summary",
+                value="",
                 children=html.Div(
                     [
                         html.H2("Feature"),
@@ -144,8 +212,8 @@ class FPLReport:
                             value=self.core_fields[0],
                             id="summary_dropdown",
                         ),
-                        html.Button("<- Prev", id="prev_btn", n_clicks=0),
-                        html.Button("-> Next", id="next_btn", n_clicks=0),
+                        html.Button("<- Prev", id="prev_btn_ws", n_clicks=0),
+                        html.Button("-> Next", id="next_btn_ws", n_clicks=0),
                         daq.BooleanSwitch(id="summary_boolswitch", on=True),
                         html.H2("Position"),
                         dcc.Dropdown(
@@ -155,7 +223,43 @@ class FPLReport:
                             multi=True,
                         ),
                         html.Br(),
-                        dash_table.DataTable(id="summary_dt"),
+                        dash_table.DataTable(id="summary_dt", page_size=10),
+                    ]
+                ),
+            )
+
+        if hasattr(self, "overall_top_n_tbl"):
+            top_n_dt = dash_table.DataTable(
+                self.overall_top_n_tbl.to_dict("records"), id="top_n_tbl", page_size=10
+            )
+            self.tab["overall_top_n"] = dcc.Tab(
+                label="Top N Managers",
+                value="",
+                children=html.Div(
+                    [
+                        html.H2(f"Top {self.n} FPL Managers"),
+                        dcc.Graph(id="top_n_bar", figure=self.overall_top_n_bar),
+                        top_n_dt,
+                    ]
+                ),
+            )
+
+        if hasattr(self, "user_league_dict"):
+            self.league_options = list(self.user_league_dict.keys())
+            self.tab["user_leagues"] = dcc.Tab(
+                label="User Leagues",
+                value="",
+                children=html.Div(
+                    [
+                        html.H2("User League Information"),
+                        dcc.Dropdown(
+                            options=self.league_options,
+                            value=self.league_options[0],
+                            id="user_league_dropdown",
+                        ),
+                        html.Button("<- Prev", id="prev_btn_ul", n_clicks=0),
+                        html.Button("-> Next", id="next_btn_ul", n_clicks=0),
+                        dash_table.DataTable(id="user_league_table", page_size=10),
                     ]
                 ),
             )
@@ -169,7 +273,18 @@ class FPLReport:
         `None`
 
         """
-        self.app.layout = html.Div([tab for tab in self.tab.values()])
+        self.app.layout = html.Div(
+            [
+                html.H1(
+                    "Fantasy Premier League Dashboard", style={"text-align": "center"}
+                ),
+                dcc.Tabs(
+                    id="tabs",
+                    value=list(self.tab.values())[0].value,
+                    children=[tab for tab in self.tab.values()],
+                ),
+            ]
+        )
 
     def _build_callback_fns(self) -> None:
         """
@@ -181,45 +296,90 @@ class FPLReport:
 
         """
 
-        @self.app.callback(
-            [Output("summary_dt", "data"), Output("summary_dropdown", "value")],
-            [
-                Input("summary_dropdown", "value"),
-                Input("summary_pos_dd", "value"),
-                Input("prev_btn", "n_clicks"),
-                Input("next_btn", "n_clicks"),
-                Input("summary_boolswitch", "on"),
-            ],
-        )
-        def _create_weekly_summary(dd_feature, dd_pos, prev_btn, next_btn, sum_bs):
-            # -- button functionality -- #
-            ctx = callback_context
-            if ctx.triggered[0]["prop_id"] == "prev_btn.n_clicks":
-                if self.core_fields.index(dd_feature) == 0:
-                    dd_feature = self.core_fields[-1]
+        def _dropdown(dd_feature, dd_list, ctx, prev_id, next_id):
+            if ctx.triggered[0]["prop_id"] == f"{prev_id}.n_clicks":
+                if dd_list.index(dd_feature) == 0:
+                    dd_feature = dd_list[-1]
                 else:
-                    dd_feature = self.core_fields[
-                        self.core_fields.index(dd_feature) - 1
-                    ]
-            elif ctx.triggered[0]["prop_id"] == "next_btn.n_clicks":
-                if self.core_fields.index(dd_feature) == len(self.core_fields) - 1:
-                    dd_feature = self.core_fields[0]
+                    dd_feature = dd_list[dd_list.index(dd_feature) - 1]
+            elif ctx.triggered[0]["prop_id"] == f"{next_id}.n_clicks":
+                if dd_list.index(dd_feature) == len(dd_list) - 1:
+                    dd_feature = dd_list[0]
                 else:
-                    dd_feature = self.core_fields[
-                        self.core_fields.index(dd_feature) + 1
-                    ]
+                    dd_feature = dd_list[dd_list.index(dd_feature) + 1]
+            return dd_feature
 
-            # -- Filter data to relevant features -- #
-            df_out = self.bootstrap_df[self.always_fields + [dd_feature]].sort_values(
-                by=dd_feature, ascending=not sum_bs
+        if hasattr(self, "overall_top_n_tbl"):
+
+            @self.app.callback(
+                [Output("summary_dt", "data"), Output("summary_dropdown", "value")],
+                [
+                    Input("summary_dropdown", "value"),
+                    Input("summary_pos_dd", "value"),
+                    Input("prev_btn_ws", "n_clicks"),
+                    Input("next_btn_ws", "n_clicks"),
+                    Input("summary_boolswitch", "on"),
+                ],
             )
-            df_out.insert(0, "rank", range(1, self.bootstrap_df.shape[0] + 1))
+            def _weekly_summary_callback(
+                dd_feature, dd_pos, prev_btn_ws, next_btn_ws, sum_bs
+            ):
+                # -- button functionality -- #
+                ctx = callback_context
+                dd_feature = _dropdown(
+                    dd_feature, self.core_fields, ctx, "prev_btn_ws", "next_btn_ws"
+                )
+                # -- Filter data to relevant features -- #
+                df_out = self.bootstrap_df[
+                    self.always_fields + [dd_feature]
+                ].sort_values(by=dd_feature, ascending=not sum_bs)
+                df_out.insert(0, "rank", range(1, self.bootstrap_df.shape[0] + 1))
 
-            # -- positional filtering -- #
-            idx = df_out["position"].isin(dd_pos)
-            df_out = df_out[idx]
+                # -- positional filtering -- #
+                idx = df_out["position"].isin(dd_pos)
+                df_out = df_out[idx]
 
-            return [df_out.to_dict("records"), dd_feature]
+                return [df_out.to_dict("records"), dd_feature]
+
+        if hasattr(self, "user_league_dict"):
+
+            @self.app.callback(
+                [
+                    Output("user_league_table", "data"),
+                    Output("user_league_dropdown", "value"),
+                ],
+                [
+                    Input("user_league_dropdown", "value"),
+                    Input("prev_btn_ul", "n_clicks"),
+                    Input("next_btn_ul", "n_clicks"),
+                ],
+            )
+            def _user_leagues_callback(league_name, prev_btn_ul, next_btn_ul):
+
+                ctx = callback_context
+                dd_value = _dropdown(
+                    league_name, self.league_options, ctx, "prev_btn_ul", "next_btn_ul"
+                )
+
+                return [self.user_league_dict[dd_value].to_dict("records"), dd_value]
+
+    def full_report(self, user_id: int, top_n: int = 1_000) -> None:
+        """
+
+        Parameters
+        ----------
+        `top_n (int)`: number of top players to find information on, default is 1000
+
+        `user_id (int)`: user id to get league information
+
+        Return
+        ------
+        `None`
+
+        """
+        self.generate_summary()
+        self.generate_top_players(n=top_n)
+        self.generate_leagues(id=user_id)
 
     def _prepare_run(self) -> None:
         """
@@ -293,40 +453,22 @@ class FPLReport:
             host = get_lan_ip()
 
         self._prepare_run()
-
         if open_window:
-            webbrowser.open_new(url=f"http://{host}:port/")
-
+            webbrowser.open_new_tab(url=f"http://{host}:{port}/")
         self.app.run(host=host, port=port, debug=debug)
 
 
-# %%
-# team_dict = get_team_id_dict()
-rpt = FPLReport(3)
-rpt.generate_summary()
-rpt.run(debug=True, open_window=False)
-# rpt.run(open_window=True)
+if __name__ == "__main__":
+    from pprint import pprint
 
+    # Tunde user id
+    tunde_id = 5770588
+    rpt = FPLReport()
 
-# %% bootstrap dataframe analysis
+    data = rpt.generate_leagues(tunde_id)
+    # pprint(data)
+    # pprint(data)
 
-if __name__ != "__main__":
-    # %%
-    # pd.to_pickle(get_player_info(), "./player_info.pkl")
-    player_info = pd.read_pickle("./player_info.pkl")
-    # # %% load in data
-    url = _get_api_url("bootstrap", gameweek=3)
-    tmp = fetch_request(url)
-    keys = list(tmp.keys())
-    print(ele := keys[5])
-
-    df = pd.DataFrame(tmp["elements"])
-    # %%
-    for col in df.columns.sort_values():
-        print(col)
-    # %%
-    df["element_type"].value_counts()
-    df["pos"] = df["element_type"].replace(POS_DICT)
-    df["pos"]
-
+    rpt.full_report(top_n=300, user_id=tunde_id)
+    rpt.run(debug=True, open_window=False)
 # %%
