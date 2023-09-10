@@ -48,6 +48,13 @@ class FPLReport:
 
         self.teams_id_dict = None
 
+        #weekly summary attributes
+        
+        self._top_players_flag = False
+        self.overall_top_n_tbl = None
+        self.overall_top_n_bar = None
+        self.n = None
+
     def _get_league_player_ownership(self, league_id: int, n) -> pd.DataFrame:
         """
 
