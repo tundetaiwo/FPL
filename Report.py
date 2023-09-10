@@ -17,8 +17,8 @@ from FPL.src import (
     get_player_id_dict,
     get_player_info,
     get_team_id_dict,
-    get_top_users_id,
     get_users,
+    get_users_id,
 )
 from FPL.utils import POS_DICT, _get_api_url, fetch_request, get_current_gw
 from tools.get_lan_ip import get_lan_ip
@@ -35,6 +35,17 @@ class FPLReport:
 
         self.tab: dict = {}
         self.bootstrap_plots: dict = {}
+
+        # Flags because easier to follow than hasattr
+        self._general_summary_flag = False
+        self._top_players_flag = False
+        self._leagues_generated_flag = False
+
+        
+        # user league attributes
+        self.user_league_ownership_tbls = {}
+        self.user_league_standing_tbls = {}
+        self.user_league_ownership_graphs = {}
 
     def _get_league_player_ownership(self, league_id: int, n) -> pd.DataFrame:
         """
@@ -87,6 +98,8 @@ class FPLReport:
         `return`:
 
         """
+
+        self._general_summary_flag = True
 
         # get bootstrap dataframe
         self.teams_id_dict = get_team_id_dict()
@@ -158,31 +171,17 @@ class FPLReport:
         `None`
 
         """
-        top_user_id = get_top_users_id(n)
-        top_users = get_users(top_user_id, self.gw)
-
-        top_user_players = []
-        i = 0
-        for user in top_users:
-            i += 1
-            top_user_players.append([player["element"] for player in user["picks"]])
-        top_user_players = np.array(top_user_players).ravel()
-        unique, count = np.unique(top_user_players, return_counts=True)
-        self.overall_top_n_tbl = (
-            pd.DataFrame(
-                {"player": unique, "count": count, "ownership (%)": 100 * count / n}
-            )
-            .replace({"player": get_player_id_dict()})
-            .sort_values("count", ascending=False)
-        )
+        self._top_players_flag = True
+        self.overall_top_n_tbl = self._get_league_player_ownership(314, n)
         self.overall_top_n_bar = px.bar(
             self.overall_top_n_tbl.head(30),
             # self.overall_top_n_tbl.query("count > 50"),
             x="player",
-            y="count",
+            y="ownership (%)",
             title=f"Top {n} ownership",
         )
         self.n = n
+
 
     def generate_player_analysis(self, players: Optional[List[str]]) -> None:
         """
@@ -212,14 +211,15 @@ class FPLReport:
         `None`
 
         """
+        self._leagues_generated_flag = True
         league_ids = get_manager_leagues_id(id)
         league_data = get_league_data(league_ids)
 
-        self.user_league_dict = {}
         for data in league_data:
             league_name = data["league"]["name"]
+            league_id = data["league"]["id"]
             print(league_name)
-            self.user_league_dict[league_name] = pd.DataFrame(
+            self.user_league_standing_tbls[league_name] = pd.DataFrame(
                 data["standings"]["results"]
             )[
                 [
@@ -250,7 +250,8 @@ class FPLReport:
         return None
 
     def _build_tabs(self) -> None:
-        if hasattr(self, "bootstrap_df"):
+
+        if self._general_summary_flag:
             self.tab["overall_summary"] = dcc.Tab(
                 label="Overall Summary",
                 value="overall_summary",
@@ -278,7 +279,7 @@ class FPLReport:
                 ),
             )
 
-        if hasattr(self, "overall_top_n_tbl"):
+        if self._top_players_flag:
             top_n_dt = dash_table.DataTable(
                 self.overall_top_n_tbl.to_dict("records"), id="top_n_tbl", page_size=10
             )
@@ -294,8 +295,8 @@ class FPLReport:
                 ),
             )
 
-        if hasattr(self, "user_league_dict"):
-            self.league_options = list(self.user_league_dict.keys())
+        if self._leagues_generated_flag:
+            self.league_options = list(self.user_league_ownership_graphs.keys())
             self.tab["user_leagues"] = dcc.Tab(
                 label="User Leagues",
                 value="user_leagues",
@@ -310,6 +311,7 @@ class FPLReport:
                         html.Button("<- Prev", id="prev_btn_ul", n_clicks=0),
                         html.Button("-> Next", id="next_btn_ul", n_clicks=0),
                         dash_table.DataTable(id="user_league_table", page_size=10),
+                        dcc.Graph(id="league_ownership_bar"),
                     ]
                 ),
             )
@@ -323,6 +325,7 @@ class FPLReport:
         `None`
 
         """
+        print(list(self.tab.values())[0].value)
         self.app.layout = html.Div(
             [
                 html.H1(
@@ -347,12 +350,12 @@ class FPLReport:
         """
 
         def _dropdown(dd_feature, dd_list, ctx, prev_id, next_id):
-            if ctx.triggered[0]["prop_id"] == f"{prev_id}.n_clicks":
+            if ctx.triggered_id == f"{prev_id}":
                 if dd_list.index(dd_feature) == 0:
                     dd_feature = dd_list[-1]
                 else:
                     dd_feature = dd_list[dd_list.index(dd_feature) - 1]
-            elif ctx.triggered[0]["prop_id"] == f"{next_id}.n_clicks":
+            elif ctx.triggered_id == f"{next_id}":
                 if dd_list.index(dd_feature) == len(dd_list) - 1:
                     dd_feature = dd_list[0]
                 else:
@@ -391,11 +394,11 @@ class FPLReport:
 
                 return [df_out.to_dict("records"), dd_feature]
 
-        if hasattr(self, "user_league_dict"):
-
+        if self._leagues_generated_flag:
             @self.app.callback(
                 [
                     Output("user_league_table", "data"),
+                    Output("league_ownership_bar", "figure"),
                     Output("user_league_dropdown", "value"),
                 ],
                 [
@@ -411,7 +414,11 @@ class FPLReport:
                     league_name, self.league_options, ctx, "prev_btn_ul", "next_btn_ul"
                 )
 
-                return [self.user_league_dict[dd_value].to_dict("records"), dd_value]
+                return [
+                    self.user_league_standing_tbls[dd_value].to_dict("records"),
+                    self.user_league_ownership_graphs[league_name],
+                    dd_value,
+                ]
 
     def full_report(self, user_id: int, top_n: int = 1_000) -> None:
         """
@@ -440,7 +447,6 @@ class FPLReport:
         `None`
 
         """
-        from dash import Dash, html
 
         # external JavaScript files
         external_scripts = [
@@ -510,15 +516,15 @@ class FPLReport:
 
 if __name__ == "__main__":
     from pprint import pprint
-
+    import pickle
     # Tunde user id
     tunde_id = 5770588
     rpt = FPLReport()
 
-    data = rpt.generate_leagues(tunde_id)
-    # pprint(data)
+    # rpt.generate_leagues(tunde_id)
+
     # pprint(data)
 
-    rpt.full_report(top_n=300, user_id=tunde_id)
+    rpt.full_report(top_n=100, user_id=tunde_id)
     rpt.run(debug=True, open_window=False)
-# %%
+
