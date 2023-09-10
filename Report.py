@@ -50,7 +50,6 @@ class FPLReport:
 
         #weekly summary attributes
         
-        self._top_players_flag = False
         self.overall_top_n_tbl = None
         self.overall_top_n_bar = None
         self.n = None
@@ -364,8 +363,7 @@ class FPLReport:
                     dd_feature = dd_list[dd_list.index(dd_feature) + 1]
             return dd_feature
 
-        if hasattr(self, "overall_top_n_tbl"):
-
+        if self._general_summary_flag:
             @self.app.callback(
                 [Output("summary_dt", "data"), Output("summary_dropdown", "value")],
                 [
