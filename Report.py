@@ -36,6 +36,45 @@ class FPLReport:
         self.tab: dict = {}
         self.bootstrap_plots: dict = {}
 
+    def _get_league_player_ownership(self, league_id: int, n) -> pd.DataFrame:
+        """
+
+        Parameters
+        ----------
+        `league_id (int)`:
+
+        `n (int)`: cap to put on number of top players to extract from league
+
+        Return
+        ------
+        `pd.DataFrame`: dataframe of player ownership within that specific league
+
+        """
+
+        user_id = get_users_id(league_id=league_id, top_n=n)
+        users = get_users(user_id, self.gw)
+
+        user_players = []
+        i = 0
+        from pprint import pprint
+        for user in users:
+            i += 1
+            user_players.append([player["element"] for player in user["picks"]])
+        
+            # print("")
+            # pprint(user["picks"])
+        user_players = np.array(user_players).ravel()
+        pprint(user_players)
+        unique, count = np.unique(user_players, return_counts=True)
+        league_player_tbl = (
+            pd.DataFrame(
+                {"player": unique, "count": count, "ownership (%)": 100 * count / n}
+            )
+            .replace({"player": get_player_id_dict()})
+            .sort_values("count", ascending=False)
+        )
+        return league_player_tbl
+
     def generate_summary(self):
         """
         method to create top n
@@ -198,6 +237,17 @@ class FPLReport:
                     "event_total": "round total",
                 }
             )
+            tbl = self._get_league_player_ownership(league_id, 300)
+            self.user_league_ownership_graphs[league_name] = px.bar(
+                tbl,
+                # tbl.head(50),
+                x="player",
+                y="ownership (%)",
+                title=f"{league_name} ownership",
+            )
+            self.user_league_ownership_tbls[league_name] = tbl
+
+        return None
 
     def _build_tabs(self) -> None:
         if hasattr(self, "bootstrap_df"):
