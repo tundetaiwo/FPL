@@ -41,11 +41,12 @@ class FPLReport:
         self._top_players_flag = False
         self._leagues_generated_flag = False
 
-        
         # user league attributes
         self.user_league_ownership_tbls = {}
         self.user_league_standing_tbls = {}
         self.user_league_ownership_graphs = {}
+
+        self.teams_id_dict = None
 
     def _get_league_player_ownership(self, league_id: int, n) -> pd.DataFrame:
         """
@@ -66,20 +67,14 @@ class FPLReport:
         users = get_users(user_id, self.gw)
 
         user_players = []
-        i = 0
-        from pprint import pprint
         for user in users:
-            i += 1
             user_players.append([player["element"] for player in user["picks"]])
-        
-            # print("")
-            # pprint(user["picks"])
+
         user_players = np.array(user_players).ravel()
-        pprint(user_players)
         unique, count = np.unique(user_players, return_counts=True)
         league_player_tbl = (
             pd.DataFrame(
-                {"player": unique, "count": count, "ownership (%)": 100 * count / n}
+                {"player": unique, "count": count, "ownership (%)": 100 * count / len(users)}
             )
             .replace({"player": get_player_id_dict()})
             .sort_values("count", ascending=False)
@@ -182,7 +177,6 @@ class FPLReport:
         )
         self.n = n
 
-
     def generate_player_analysis(self, players: Optional[List[str]]) -> None:
         """
         Method to generate analysis information of premier league players
@@ -218,7 +212,6 @@ class FPLReport:
         for data in league_data:
             league_name = data["league"]["name"]
             league_id = data["league"]["id"]
-            print(league_name)
             self.user_league_standing_tbls[league_name] = pd.DataFrame(
                 data["standings"]["results"]
             )[
@@ -239,10 +232,10 @@ class FPLReport:
             )
             tbl = self._get_league_player_ownership(league_id, 300)
             self.user_league_ownership_graphs[league_name] = px.bar(
-                tbl,
-                # tbl.head(50),
+                tbl.head(50),
                 x="player",
                 y="ownership (%)",
+                # y="count",
                 title=f"{league_name} ownership",
             )
             self.user_league_ownership_tbls[league_name] = tbl
@@ -310,8 +303,11 @@ class FPLReport:
                         ),
                         html.Button("<- Prev", id="prev_btn_ul", n_clicks=0),
                         html.Button("-> Next", id="next_btn_ul", n_clicks=0),
+                        html.H3("Standings"),
                         dash_table.DataTable(id="user_league_table", page_size=10),
+                        html.H3("Ownwership"),
                         dcc.Graph(id="league_ownership_bar"),
+                        dash_table.DataTable(id="league_ownership_tbl", page_size=10),
                     ]
                 ),
             )
@@ -325,7 +321,6 @@ class FPLReport:
         `None`
 
         """
-        print(list(self.tab.values())[0].value)
         self.app.layout = html.Div(
             [
                 html.H1(
@@ -395,10 +390,12 @@ class FPLReport:
                 return [df_out.to_dict("records"), dd_feature]
 
         if self._leagues_generated_flag:
+
             @self.app.callback(
                 [
                     Output("user_league_table", "data"),
                     Output("league_ownership_bar", "figure"),
+                    Output("league_ownership_tbl", "data"),
                     Output("user_league_dropdown", "value"),
                 ],
                 [
@@ -414,9 +411,18 @@ class FPLReport:
                     league_name, self.league_options, ctx, "prev_btn_ul", "next_btn_ul"
                 )
 
+                standings_tbl = self.user_league_standing_tbls[dd_value].to_dict(
+                    "records"
+                )
+                ownership_graphs = self.user_league_ownership_graphs[dd_value]
+                ownership_tbl = self.user_league_ownership_tbls[dd_value].to_dict(
+                    "records"
+                )
+
                 return [
-                    self.user_league_standing_tbls[dd_value].to_dict("records"),
-                    self.user_league_ownership_graphs[league_name],
+                    standings_tbl,
+                    ownership_graphs,
+                    ownership_tbl,
                     dd_value,
                 ]
 
@@ -515,16 +521,17 @@ class FPLReport:
 
 
 if __name__ == "__main__":
-    from pprint import pprint
     import pickle
+    from pprint import pprint
+
     # Tunde user id
-    tunde_id = 5770588
     rpt = FPLReport()
 
     # rpt.generate_leagues(tunde_id)
 
     # pprint(data)
 
-    rpt.full_report(top_n=100, user_id=tunde_id)
+    tunde_id = 5770588
+    # rpt.full_report(top_n=100, user_id=tunde_id)
+    rpt.generate_leagues(tunde_id)
     rpt.run(debug=True, open_window=False)
-
