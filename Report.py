@@ -203,7 +203,7 @@ class FPLReport:
         if hasattr(self, "bootstrap_df"):
             self.tab["overall_summary"] = dcc.Tab(
                 label="Overall Summary",
-                value="",
+                value="overall_summary",
                 children=html.Div(
                     [
                         html.H2("Feature"),
@@ -234,7 +234,7 @@ class FPLReport:
             )
             self.tab["overall_top_n"] = dcc.Tab(
                 label="Top N Managers",
-                value="",
+                value="overall_top_n",
                 children=html.Div(
                     [
                         html.H2(f"Top {self.n} FPL Managers"),
@@ -248,7 +248,7 @@ class FPLReport:
             self.league_options = list(self.user_league_dict.keys())
             self.tab["user_leagues"] = dcc.Tab(
                 label="User Leagues",
-                value="",
+                value="user_leagues",
                 children=html.Div(
                     [
                         html.H2("User League Information"),
