@@ -13,10 +13,10 @@ from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
 from FPL.src import (
     basic_player_df,
     get_league_data,
-    get_manager_leagues_id,
     get_player_id_dict,
     get_player_info,
     get_team_id_dict,
+    get_user_leagues_id,
     get_users,
     get_users_id,
 )
@@ -48,8 +48,7 @@ class FPLReport:
 
         self.teams_id_dict = None
 
-        #weekly summary attributes
-        
+        # weekly summary attributes
         self.overall_top_n_tbl = None
         self.overall_top_n_bar = None
         self.n = None
@@ -212,7 +211,7 @@ class FPLReport:
 
         """
         self._leagues_generated_flag = True
-        league_ids = get_manager_leagues_id(id)
+        league_ids = get_user_leagues_id(id)
         league_data = get_league_data(league_ids)
 
         for data in league_data:

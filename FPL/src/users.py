@@ -37,13 +37,15 @@ def get_users(ids: List[int], gameweek: int):
     return asyncio.run(_get_users_async(ids, gameweek=gameweek))
 
 
-def get_top_users_id(n: int = 50) -> List[int]:
+def get_users_id(league_id: int, top_n: int = 50) -> List[int]:
     """
-    Function to asynchronously get the IDs of the top n users.
+    Function to asynchronously get the IDs of users within a league.
 
     Parameters
     ----------
-    `n` (int): top n users to retrieve
+    `league_id (int)`:
+
+    `top_n` (int): top n users to retrieve
 
     Return
     ------
@@ -58,40 +60,38 @@ def get_top_users_id(n: int = 50) -> List[int]:
 
     async def _get_top_users_id(n) -> List[int]:
         pages = range((n // 50) + 2)
-        urls = [_get_api_url("standings", id=314, page=page) for page in pages]
-        # urls = [_get_api_url("standings", page, league=314) for page in pages]
+        urls = [_get_api_url("standings", id=league_id, page=page) for page in pages]
         async with ClientSession() as session:
             tasks = [fetch_request_async(url, session) for url in urls]
             data = await asyncio.gather(*tasks)
 
         return data
 
-    list_of_pages = asyncio.run(_get_top_users_id(n))
+    list_of_pages = asyncio.run(_get_top_users_id(top_n))
     top_ids = []
     # start from 1 as first page is always empty
     for page in list_of_pages[1:]:
         # Happy to make the assumption there will always be 50 players on a page
-        for player in range(50):
+        for player in range(len(page["standings"]["results"])):
             top_ids.append(page.get("standings")["results"][player]["entry"])
+    return top_ids[:top_n]
 
-    return top_ids[:n]
 
-
-def get_manager_leagues_id(id: int) -> List[int]:
+def get_user_leagues_id(user_id: int) -> List[int]:
     """
     Function to get custom league ids a FPL manager has joined.
-    
+
     Parameters
     ----------
-    `param1 (type)`:
+    `manager_id (int)`: id of user to get league ids
 
     Return
     ------
-    `return`:
+    `List[int]`: list of custom leauge ids for user
 
     """
 
-    url = _get_api_url("entry", id)
+    url = _get_api_url("entry", user_id)
     data = fetch_request(url)
     league_ids = []
     for league in data["leagues"]["classic"]:
@@ -115,13 +115,12 @@ def get_league_data(ids: List[int]) -> None:
     `return`:
 
     """
-    urls = [_get_api_url("standings", id=1746319) for id in ids]
+    urls = [_get_api_url("standings", id=id) for id in ids]
 
-    async def _get_league_data(ids):
+    async def _get_league_data(urls):
         async with ClientSession() as session:
             tasks = [fetch_request_async(url, session) for url in urls]
             data = await asyncio.gather(*tasks)
         return data
-    
 
-    return asyncio.run(_get_league_data(ids))
+    return asyncio.run(_get_league_data(urls))
