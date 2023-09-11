@@ -79,7 +79,11 @@ class FPLReport:
         unique, count = np.unique(user_players, return_counts=True)
         league_player_tbl = (
             pd.DataFrame(
-                {"player": unique, "count": count, "ownership (%)": 100 * count / len(users)}
+                {
+                    "player": unique,
+                    "count": count,
+                    "ownership (%)": 100 * count / len(users),
+                }
             )
             .replace({"player": get_player_id_dict()})
             .sort_values("count", ascending=False)
@@ -308,7 +312,7 @@ class FPLReport:
                         ),
                         html.Button("<- Prev", id="prev_btn_ul", n_clicks=0),
                         html.Button("-> Next", id="next_btn_ul", n_clicks=0),
-                        html.H3("Standings"),
+                        html.H3(id="average_html"),
                         dash_table.DataTable(id="user_league_table", page_size=10),
                         html.H3("Ownwership"),
                         dcc.Graph(id="league_ownership_bar"),
@@ -363,6 +367,7 @@ class FPLReport:
             return dd_feature
 
         if self._general_summary_flag:
+
             @self.app.callback(
                 [Output("summary_dt", "data"), Output("summary_dropdown", "value")],
                 [
@@ -400,6 +405,7 @@ class FPLReport:
                     Output("user_league_table", "data"),
                     Output("league_ownership_bar", "figure"),
                     Output("league_ownership_tbl", "data"),
+                    Output("average_html", "children"),
                     Output("user_league_dropdown", "value"),
                 ],
                 [
@@ -411,23 +417,31 @@ class FPLReport:
             def _user_leagues_callback(league_name, prev_btn_ul, next_btn_ul):
 
                 ctx = callback_context
-                dd_value = _dropdown(
+                league_name = _dropdown(
                     league_name, self.league_options, ctx, "prev_btn_ul", "next_btn_ul"
                 )
 
-                standings_tbl = self.user_league_standing_tbls[dd_value].to_dict(
+                standings_tbl = self.user_league_standing_tbls[league_name].to_dict(
                     "records"
                 )
-                ownership_graphs = self.user_league_ownership_graphs[dd_value]
-                ownership_tbl = self.user_league_ownership_tbls[dd_value].to_dict(
+                ownership_graphs = self.user_league_ownership_graphs[league_name]
+                ownership_tbl = self.user_league_ownership_tbls[league_name].to_dict(
                     "records"
                 )
+                gw_average = self.user_league_standing_tbls[league_name][
+                    "round total"
+                ].mean()
+                average_html = f"""
+                    '{league_name}' (GW {self.gw})\n
+                    Average Points: {gw_average:.2f}
+                """
 
                 return [
                     standings_tbl,
                     ownership_graphs,
                     ownership_tbl,
-                    dd_value,
+                    average_html,
+                    league_name,
                 ]
 
     def full_report(self, user_id: int, top_n: int = 1_000) -> None:
@@ -536,6 +550,6 @@ if __name__ == "__main__":
     # pprint(data)
 
     tunde_id = 5770588
-    # rpt.full_report(top_n=100, user_id=tunde_id)
-    rpt.generate_leagues(tunde_id)
+    rpt.full_report(top_n=100, user_id=tunde_id)
+    # rpt.generate_leagues(tunde_id)
     rpt.run(debug=True, open_window=False)
