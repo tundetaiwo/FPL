@@ -81,15 +81,13 @@ def get_player_id_dict(reverse: bool = False) -> Dict[str, int] | Dict[int, str]
     return id_dict
 
 
-def get_player_info(ids: List[int] | List[str] = None, window=5) -> List[Dict]:
+def get_player_info(ids: List[int] | List[str] = None) -> List[Dict]:
     """
     Methhod to extract information for player(s), such as recent form.
 
     Parameters
     ----------
     `player (str)`: Name of player to extract FPL information, defaults to None
-
-    `window (int)`: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
 
     Return
     ------
@@ -107,32 +105,6 @@ def get_player_info(ids: List[int] | List[str] = None, window=5) -> List[Dict]:
             tasks = [fetch_request_async(url, session) for url in urls]
             data = await asyncio.gather(*tasks)
         return data
-
-    # TODO: move this outside of function into dashboard
-    id_dict = get_player_id_dict()
-    max_id = id_dict.keys()
-    if ids is None:
-        ids = list(max_id)
-    elif any(ID > max(max_id) or ID <= 0 for ID in ids):
-        raise ValueError(
-            "IDs in list do not lie within id dictionary, please consult with get_player_id_dict method."
-        )
-
-    # if passing a list of players names replace names with ids
-    if all(isinstance(ele, str) for ele in ids):
-        player_dict = get_player_id_dict(reverse=True)
-        try:
-            ids = [player_dict[name] for name in ids]
-
-        except KeyError as err:
-            raise ValueError(
-                """Player name cannot be found in player 
-                             id dictionary, please make sure player plays 
-                             for premier league or make sure id dictionary is up to date."""
-            ) from err
-
-    elif not all(isinstance(ele, int) for ele in ids):
-        raise ValueError("IDs must be either all strings or all integers.")
 
     data = asyncio.run(_get_player_info(ids))
 
