@@ -37,21 +37,28 @@ class FPLReport:
         self.bootstrap_plots: dict = {}
 
         # Flags because easier to follow than hasattr
-        self._general_summary_flag = False
-        self._top_players_flag = False
-        self._leagues_generated_flag = False
+        self._general_summary_flag: bool = False
+        self._top_players_flag: bool = False
+        self._leagues_generated_flag: bool = False
+        self._player_analysis_flag: bool = False
 
         # user league attributes
-        self.user_league_ownership_tbls = {}
-        self.user_league_standing_tbls = {}
-        self.user_league_ownership_graphs = {}
-
+        self.user_league_ownership_tbls: Dict = None
+        self.user_league_standing_tbls: Dict = None
+        self.user_league_ownership_graphs: Dict = None
+    
         self.teams_id_dict = None
 
         # weekly summary attributes
-        self.overall_top_n_tbl = None
-        self.overall_top_n_bar = None
-        self.n = None
+        self.overall_top_n_tbl: Dict = None
+        self.overall_top_n_bar: Dict = None
+        self.n: int = None
+
+        # player analysis attributes
+        self.recent_df: pd.DataFrame = None
+        self.upcoming_fixtures_df: pd.DataFrame = None
+        self.player_analysis_features: List[str] = None
+        self.player_analysis_list: List[str] = None
 
     def _get_league_player_ownership(self, league_id: int, n) -> pd.DataFrame:
         """
@@ -186,20 +193,77 @@ class FPLReport:
         )
         self.n = n
 
-    def generate_player_analysis(self, players: Optional[List[str]]) -> None:
+    def generate_player_analysis(
+        self, players: Optional[List[str] | List[int]] = None, gw: int = None, window=5
+    ) -> None:
         """
         Method to generate analysis information of premier league players
 
         Parameters
         ----------
+        TODO
         `players (List[str])`: list of players to perform analysis on
+
+        `window (int)`: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
+
 
         Return
         ------
         `None`
 
         """
-        ...
+
+        if gw is None:
+            gw = self.gw
+
+        id_dict = get_player_id_dict()
+        if players is None:
+            players = list(id_dict.keys())
+
+        # if passing a list of players names replace names with ids
+        if all(isinstance(ele, str) for ele in players):
+            player_dict = get_player_id_dict(reverse=True)
+            try:
+                players = [player_dict[name] for name in players]
+
+            except KeyError as err:
+                raise ValueError(
+                    """Player name cannot be found in player 
+                                id dictionary, please make sure player plays 
+                                for premier league or make sure id dictionary is up to date."""
+                ) from err
+        elif not all(isinstance(ele, int) for ele in players):
+            raise ValueError("IDs must be either all strings or all integers.")
+
+        # calculating max like this is fairly inexpensive
+        if any(ID > max(players) or ID <= 0 for ID in players):
+            raise ValueError(
+                "IDs in list do not lie within id dictionary, please consult with get_player_id_dict method."
+            )
+
+        data = get_player_info(players)
+        player_df = pd.DataFrame()
+        fixtures_df = pd.DataFrame()
+        for player in data:
+            player_df = pd.concat([player_df, pd.DataFrame(player["history"])])
+
+            fixtures_df = pd.concat([fixtures_df, pd.DataFrame(player["fixtures"])])
+
+        player_df.reset_index()
+        fixtures_df.reset_index()
+
+        self.recent_df = player_df.query(f"round > {gw - window} and round <= {gw}")
+        self.player_analysis_features = self.recent_df.columns.tolist()
+        self.player_analysis_list = [id_dict[ID] for ID in players]
+
+        # TODO: maybe want to up window from 10 to either <window> or 15?
+        self.upcoming_fixtures_df = (
+            fixtures_df.query(f"event < {gw + 10}")
+            .loc[:, ["event", "difficulty", "id", "is_home"]]
+            .sort_values(by="event")
+        )
+        self._player_analysis_flag = True
+        return None
 
     def generate_leagues(self, id: Optional[List[int]] = None):
         """
@@ -214,7 +278,6 @@ class FPLReport:
         `None`
 
         """
-        self._leagues_generated_flag = True
         league_ids = get_user_leagues_id(id)
         league_data = get_league_data(league_ids)
 
@@ -249,6 +312,7 @@ class FPLReport:
             )
             self.user_league_ownership_tbls[league_name] = tbl
 
+        self._leagues_generated_flag = True
         return None
 
     def _build_tabs(self) -> None:
@@ -317,6 +381,34 @@ class FPLReport:
                         html.H3("Ownwership"),
                         dcc.Graph(id="league_ownership_bar"),
                         dash_table.DataTable(id="league_ownership_tbl", page_size=10),
+                    ]
+                ),
+            )
+
+        if self._player_analysis_flag:
+            self.tabp["player_analysis"] = dcc.Tab(
+                label="Player Analysis",
+                value="player_analysis",
+                children=html.Div(
+                    [
+                        html.H2("Weekly Player Analysis"),
+                        dcc.Dropdown(
+                            options=self.player_analysis_list,
+                            value=self.player_analysis_list[0],
+                            id="player_selection_dropdown",
+                        ),
+                        # player selection dropdown
+                        html.Button("<- Prev", id="prev_btn_ps", n_clicks=0),
+                        html.Button("-> Next", id="next_btn_ps", n_clicks=0),
+                        dash_table.DataTable(id="player_analysis_tbl"),
+                        dcc.Dropdown(
+                            options=self.player_analysis_features,
+                            value=self.player_analysis_features[0],
+                            id="player_analysis_dropdown",
+                        ),
+                        html.Button("<- Prev", id="prev_btn_pa", n_clicks=0),
+                        html.Button("-> Next", id="next_btn_pa", n_clicks=0),
+                        dcc.Graph("player_analysis_graph"),
                     ]
                 ),
             )
@@ -444,6 +536,37 @@ class FPLReport:
                     league_name,
                 ]
 
+        if self._player_analysis_flag:
+
+            @self.app.callback(
+                [
+                    Output("player_analysis_graph", "figure"),
+                    Output("player_analysis_tbl", "data"),
+                    Output("player_analysis_dropdown", "value"),
+                ],
+                [
+                    Input("player_analysis_dropdown", "value"),
+                    Input("prev_btn_pa", "n_clicks"),
+                    Input("next_btn_pa", "n_clicks"),
+                ],
+            )
+            def _player_analysis_callback(feature_name, prev_btn_pa, next_btn_pa):
+                # TODO: graph player stats on a weekly basis
+                # TODO: table showing next fixtures, difficulty & percentage at home
+                ctx = callback_context
+                feature_name = _dropdown(
+                    feature_name, self.league_options, ctx, "prev_btn_pa", "next_btn_pa"
+                )
+
+                # Graph showing player stats on a weekly basis
+                player_df = self.recent_df[feature_name].query("")
+                # px.
+                player_graph = px.line(self.recent_df, x="round", y=feature_name)
+
+                upcoming_tbl = self.upcoming_fixtures_df
+
+                return [player_graph, upcoming_tbl, feature_name]
+
     def full_report(self, user_id: int, top_n: int = 1_000) -> None:
         """
 
@@ -550,6 +673,11 @@ if __name__ == "__main__":
     # pprint(data)
 
     tunde_id = 5770588
-    rpt.full_report(top_n=100, user_id=tunde_id)
+    rpt.generate_player_analysis([10, 13, 131, 99])
+    # pprint(rpt.recent_df.columns)
+    pprint(rpt.player_analysis_list)
+    # pprint(rpt.recent_df["round"])
+    # pprint(rpt.upcoming_fixtures_df)
+    # rpt.full_report(top_n=100, user_id=tunde_id)
     # rpt.generate_leagues(tunde_id)
-    rpt.run(debug=True, open_window=False)
+    # rpt.run(debug=True, open_window=False)
