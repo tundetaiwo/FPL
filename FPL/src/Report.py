@@ -43,15 +43,15 @@ class FPLReport:
         self._player_analysis_flag: bool = False
 
         # user league attributes
-        self.user_league_ownership_tbls: Dict = None
-        self.user_league_standing_tbls: Dict = None
-        self.user_league_ownership_graphs: Dict = None
-    
+        self.user_league_ownership_tbls: Dict = {}
+        self.user_league_standing_tbls: Dict = {}
+        self.user_league_ownership_graphs: Dict = {}
+
         self.teams_id_dict = None
 
         # weekly summary attributes
-        self.overall_top_n_tbl: Dict = None
-        self.overall_top_n_bar: Dict = None
+        self.overall_top_n_tbl: Dict = {}
+        self.overall_top_n_bar: Dict = {}
         self.n: int = None
 
         # player analysis attributes
@@ -316,7 +316,6 @@ class FPLReport:
         return None
 
     def _build_tabs(self) -> None:
-
         if self._general_summary_flag:
             self.tab["overall_summary"] = dcc.Tab(
                 label="Overall Summary",
@@ -386,7 +385,7 @@ class FPLReport:
             )
 
         if self._player_analysis_flag:
-            self.tabp["player_analysis"] = dcc.Tab(
+            self.tab["player_analysis"] = dcc.Tab(
                 label="Player Analysis",
                 value="player_analysis",
                 children=html.Div(
@@ -507,7 +506,6 @@ class FPLReport:
                 ],
             )
             def _user_leagues_callback(league_name, prev_btn_ul, next_btn_ul):
-
                 ctx = callback_context
                 league_name = _dropdown(
                     league_name, self.league_options, ctx, "prev_btn_ul", "next_btn_ul"
@@ -675,9 +673,9 @@ if __name__ == "__main__":
     tunde_id = 5770588
     rpt.generate_player_analysis([10, 13, 131, 99])
     # pprint(rpt.recent_df.columns)
-    pprint(rpt.player_analysis_list)
+    # pprint(rpt.player_analysis_list)
     # pprint(rpt.recent_df["round"])
     # pprint(rpt.upcoming_fixtures_df)
-    # rpt.full_report(top_n=100, user_id=tunde_id)
+    rpt.full_report(top_n=100, user_id=tunde_id)
     # rpt.generate_leagues(tunde_id)
-    # rpt.run(debug=True, open_window=False)
+    rpt.run(debug=True, open_window=False)
