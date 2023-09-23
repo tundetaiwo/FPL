@@ -83,7 +83,7 @@ def get_player_id_dict(reverse: bool = False) -> Dict[str, int] | Dict[int, str]
 
 def get_player_info(ids: List[int] | List[str] = None) -> List[Dict]:
     """
-    Methhod to extract information for player(s), such as recent form.
+    Method to extract information for player(s), such as recent form.
 
     Parameters
     ----------
