@@ -170,7 +170,7 @@ class FPLReport:
         # Positions
         self.pos_list = list(POS_DICT.values())
 
-    def generate_top_players(self, n: int = 1000):
+    def generate_top_managers(self, n: int = 1000):
         """
 
         Parameters
@@ -580,7 +580,7 @@ class FPLReport:
 
         """
         self.generate_summary()
-        self.generate_top_players(n=top_n)
+        self.generate_top_managers(n=top_n)
         self.generate_leagues(id=user_id)
 
     def _prepare_run(self) -> None:
