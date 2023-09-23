@@ -137,11 +137,13 @@ class FPLReport:
             "expected_goals": "expected goals",
             "expected_goals_per_90": "expected goals per 90",
             "assists": "assists",
+        }
+
+        transfer_fields_dict = {
             "selected_by_percent": "ownership (%)",
             "transfers_in_event": "transfers in event",
             "transfers_out_event": "transfers out event",
         }
-
         self.gk_fields = [
             "saves",
             "saves_per_90",
@@ -158,7 +160,7 @@ class FPLReport:
 
         # -- bootstrap dataframme cleanup -- #
         self.bootstrap_df = (
-            bootstrap_df.rename(columns=dict(**core_fields_dict, **always_fields_dict))
+            bootstrap_df.rename(columns=dict(**core_fields_dict, **always_fields_dict, **transfer_fields_dict))
             .astype({"ownership (%)": float})
             .replace({"team": self.teams_id_dict, "position": POS_DICT})
             .assign(price=lambda x: x["price"] / 10)
@@ -166,6 +168,7 @@ class FPLReport:
 
         self.core_fields = list(core_fields_dict.values())
         self.always_fields = list(always_fields_dict.values())
+        self.transfer_fields = list(transfer_fields_dict.values())
 
         # Positions
         self.pos_list = list(POS_DICT.values())
@@ -340,6 +343,57 @@ class FPLReport:
                         ),
                         html.Br(),
                         dash_table.DataTable(id="summary_dt", page_size=10),
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.H3(
+                                            "Ownership",
+                                            style={"text-align": "center"},
+                                        ),
+                                        dash_table.DataTable(
+                                            id="ownership_dt", page_size=10
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "inline-block",
+                                        "margin-right": 20,
+                                    },
+                                ),
+                                html.Div(
+                                    [
+                                        html.H3(
+                                            "Transfers In",
+                                            style={"text-align": "center"},
+                                        ),
+                                        dash_table.DataTable(
+                                            id="transfers_in_dt", page_size=10
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "inline-block",
+                                        "margin-left": 20,
+                                        "margin-right": 20,
+                                    },
+                                ),
+                                html.Div(
+                                    [
+                                        html.H3(
+                                            "Transfers Out",
+                                            style={"text-align": "center"},
+                                        ),
+                                        dash_table.DataTable(
+                                            id="transfers_out_dt", page_size=10
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "inline-block",
+                                        "margin-left": 20,
+                                    },
+                                ),
+                            ],
+                            style={"text-align": "center"},
+                        ),
                     ]
                 ),
             )
@@ -460,7 +514,13 @@ class FPLReport:
         if self._general_summary_flag:
 
             @self.app.callback(
-                [Output("summary_dt", "data"), Output("summary_dropdown", "value")],
+                [
+                    Output("summary_dt", "data"),
+                    Output("ownership_dt", "data"),
+                    Output("transfers_in_dt", "data"),
+                    Output("transfers_out_dt", "data"),
+                    Output("summary_dropdown", "value"),
+                ],
                 [
                     Input("summary_dropdown", "value"),
                     Input("summary_pos_dd", "value"),
@@ -478,16 +538,40 @@ class FPLReport:
                     dd_feature, self.core_fields, ctx, "prev_btn_ws", "next_btn_ws"
                 )
                 # -- Filter data to relevant features -- #
-                df_out = self.bootstrap_df[
+                df_summary_out = self.bootstrap_df[
                     self.always_fields + [dd_feature]
                 ].sort_values(by=dd_feature, ascending=not sum_bs)
-                df_out.insert(0, "rank", range(1, self.bootstrap_df.shape[0] + 1))
+                df_summary_out.insert(
+                    0, "rank", range(1, self.bootstrap_df.shape[0] + 1)
+                )
 
                 # -- positional filtering -- #
-                idx = df_out["position"].isin(dd_pos)
-                df_out = df_out[idx]
+                idx = df_summary_out["position"].isin(dd_pos)
+                df_summary_out = df_summary_out[idx]
 
-                return [df_out.to_dict("records"), dd_feature]
+                df_transfers = self.bootstrap_df[
+                    self.always_fields + self.transfer_fields
+                ]
+                df_transfers.insert(0, "rank", range(1, self.bootstrap_df.shape[0] + 1))
+
+                df_ownership_out = df_transfers[
+                    ["full name", self.transfer_fields[0]]
+                ].sort_values(by=self.transfer_fields[0], ascending=False)
+
+                df_transfers_in_out = df_transfers[
+                    ["full name", self.transfer_fields[1]]
+                ].sort_values(by=self.transfer_fields[1], ascending=False)
+
+                df_transfers_out_out = df_transfers[
+                    ["full name", self.transfer_fields[2]]
+                ].sort_values(by=self.transfer_fields[2], ascending=False)
+                return [
+                    df_summary_out.to_dict("records"),
+                    df_ownership_out.to_dict("records"),
+                    df_transfers_in_out.to_dict("records"),
+                    df_transfers_out_out.to_dict("records"),
+                    dd_feature,
+                ]
 
         if self._leagues_generated_flag:
 
