@@ -2,13 +2,16 @@
 import time
 import webbrowser
 from typing import Dict, List, Optional
+from functools import lru_cache
 
+import dash_bootstrap_components as dbc
 import dash_daq as daq
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, callback_context, dash_table, dcc, html
+from tqdm import tqdm
 
 from FPL.src import (
     basic_player_df,
@@ -20,7 +23,7 @@ from FPL.src import (
     get_users,
     get_users_id,
 )
-from FPL.utils import POS_DICT, _get_api_url, fetch_request, get_current_gw
+from FPL.utils import POS_DICT, _get_api_url, fetch_request, get_current_gw, dir_cache
 from tools.get_lan_ip import get_lan_ip
 
 
@@ -200,6 +203,7 @@ class FPLReport:
         )
         self.n = n
 
+    @dir_cache(refresh=10)
     def generate_player_analysis(
         self, players: Optional[List[str] | List[int]] = None, gw: int = None, window=5
     ) -> None:
@@ -208,11 +212,11 @@ class FPLReport:
 
         Parameters
         ----------
-        TODO
         `players (List[str])`: list of players to perform analysis on
 
+        `gw (int)`: upper limit of gameweek to look at, if None then looks at most recent gameweek. Defualt=None
+        
         `window (int)`: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
-
 
         Return
         ------
@@ -251,8 +255,7 @@ class FPLReport:
         data = get_player_info(players)
         player_df = pd.DataFrame()
         fixtures_df = pd.DataFrame()
-        for player in data:
-            print(player["history"][1])
+        for player in tqdm(data, "Player Analysis: "):
             player_name = id_dict[player["history"][0]["element"]]
             player_df = pd.concat([player_df, pd.DataFrame(player["history"])])
 
@@ -264,7 +267,6 @@ class FPLReport:
         fixtures_df.reset_index()
 
         self.recent_df = player_df.query(f"round > {gw - window} and round <= {gw}")
-        from pprint import pprint
 
         self.player_analysis_features = self.recent_df.columns.tolist()
         self.player_analysis_list = [id_dict[ID] for ID in players]
@@ -274,8 +276,6 @@ class FPLReport:
         )
 
         # TODO: maybe want to up window from 10 to either <window> or 15?
-        pprint(fixtures_df.columns)
-        # pprint(fixtures_df["code"].unique())
         self.upcoming_fixtures_df = (
             fixtures_df.query(f"event < {gw + 10}")
             .loc[:, ["full name", "event", "difficulty", "id", "is_home"]]
@@ -682,16 +682,20 @@ class FPLReport:
                 player_df = self.recent_df.query("`full name` == @player_name")[
                     ["round", feature_name]
                 ]
-                print(player_df)
-                print(player_name)
-                # px.
                 player_graph = px.line(player_df, x="round", y=feature_name)
 
                 upcoming_tbl = (
-                    self.upcoming_fixtures_df
-                ).query("`full name` == @player_name")
+                    (self.upcoming_fixtures_df)
+                    .query("`full name` == @player_name")
+                    .drop(columns="full name")
+                )
 
-                return [player_graph, upcoming_tbl.to_dict("records"), player_name, feature_name, ]
+                return [
+                    player_graph,
+                    upcoming_tbl.to_dict("records"),
+                    player_name,
+                    feature_name,
+                ]
 
     def full_report(self, user_id: int, top_n: int = 1_000) -> None:
         """
@@ -710,6 +714,7 @@ class FPLReport:
         self.generate_summary()
         self.generate_top_managers(n=top_n)
         self.generate_leagues(id=user_id)
+        self.generate_player_analysis()
 
     def _prepare_run(self) -> None:
         """
@@ -734,11 +739,9 @@ class FPLReport:
 
         # external CSS stylesheets
         external_stylesheets = [
-            "https://codepen.io/chriddyp/pen/bWLwgP.css",
+            "https://cdn.jsdelivr.net/npm/bootswatch@4.5.2/dist/cerulean/bootstrap.min.css",
             {
-                "href": "https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css",
-                "rel": "stylesheet",
-                "integrity": "sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO",
+                "integrity": "sha384-3fdgwJw17Bi87e1QQ4fsLn4rUFqWw//KU0g8TvV6quvahISRewev6/EocKNuJmEw",
                 "crossorigin": "anonymous",
             },
         ]
@@ -800,10 +803,6 @@ if __name__ == "__main__":
 
     tunde_id = 5770588
     rpt.generate_player_analysis([10, 13, 131, 99])
-    # pprint(rpt.recent_df.columns)
-    # pprint(rpt.player_analysis_list)
-    # pprint(rpt.recent_df["round"])
-    # pprint(rpt.upcoming_fixtures_df)
     rpt.full_report(top_n=100, user_id=tunde_id)
     # rpt.generate_leagues(tunde_id)
     rpt.run(debug=True, open_window=False)
