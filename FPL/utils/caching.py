@@ -25,9 +25,6 @@ def dir_cache(
             cache_file = f"{cache_dir}/{func.__name__}_result.pkl"
 
             # Try to read from cache
-            print(refresh)
-            print(os.path.exists(cache_file) and (time.time() - os.path.getmtime(cache_file)) < (refresh * 60))
-
             if os.path.exists(cache_file) and (
                 time.time() - os.path.getctime(cache_file)
             ) < (refresh * 60):
