@@ -160,7 +160,11 @@ class FPLReport:
 
         # -- bootstrap dataframme cleanup -- #
         self.bootstrap_df = (
-            bootstrap_df.rename(columns=dict(**core_fields_dict, **always_fields_dict, **transfer_fields_dict))
+            bootstrap_df.rename(
+                columns=dict(
+                    **core_fields_dict, **always_fields_dict, **transfer_fields_dict
+                )
+            )
             .astype({"ownership (%)": float})
             .replace({"team": self.teams_id_dict, "position": POS_DICT})
             .assign(price=lambda x: x["price"] / 10)
@@ -248,21 +252,33 @@ class FPLReport:
         player_df = pd.DataFrame()
         fixtures_df = pd.DataFrame()
         for player in data:
+            print(player["history"][1])
+            player_name = id_dict[player["history"][0]["element"]]
             player_df = pd.concat([player_df, pd.DataFrame(player["history"])])
 
-            fixtures_df = pd.concat([fixtures_df, pd.DataFrame(player["fixtures"])])
+            df = pd.DataFrame(player["fixtures"])
+            df["full name"] = id_dict[player["history"][0]["element"]]
+            fixtures_df = pd.concat([fixtures_df, df])
 
         player_df.reset_index()
         fixtures_df.reset_index()
 
         self.recent_df = player_df.query(f"round > {gw - window} and round <= {gw}")
+        from pprint import pprint
+
         self.player_analysis_features = self.recent_df.columns.tolist()
         self.player_analysis_list = [id_dict[ID] for ID in players]
 
+        self.recent_df.loc[:, "full name"] = self.recent_df.loc[:, "element"].replace(
+            id_dict
+        )
+
         # TODO: maybe want to up window from 10 to either <window> or 15?
+        pprint(fixtures_df.columns)
+        # pprint(fixtures_df["code"].unique())
         self.upcoming_fixtures_df = (
             fixtures_df.query(f"event < {gw + 10}")
-            .loc[:, ["event", "difficulty", "id", "is_home"]]
+            .loc[:, ["full name", "event", "difficulty", "id", "is_home"]]
             .sort_values(by="event")
         )
         self._player_analysis_flag = True
@@ -453,7 +469,7 @@ class FPLReport:
                         # player selection dropdown
                         html.Button("<- Prev", id="prev_btn_ps", n_clicks=0),
                         html.Button("-> Next", id="next_btn_ps", n_clicks=0),
-                        dash_table.DataTable(id="player_analysis_tbl"),
+                        dash_table.DataTable(id="player_analysis_tbl", page_size=5),
                         dcc.Dropdown(
                             options=self.player_analysis_features,
                             value=self.player_analysis_features[0],
@@ -624,30 +640,58 @@ class FPLReport:
                 [
                     Output("player_analysis_graph", "figure"),
                     Output("player_analysis_tbl", "data"),
+                    Output("player_selection_dropdown", "value"),
                     Output("player_analysis_dropdown", "value"),
                 ],
                 [
+                    Input("player_selection_dropdown", "value"),
+                    Input("prev_btn_ps", "n_clicks"),
+                    Input("next_btn_ps", "n_clicks"),
                     Input("player_analysis_dropdown", "value"),
                     Input("prev_btn_pa", "n_clicks"),
                     Input("next_btn_pa", "n_clicks"),
                 ],
             )
-            def _player_analysis_callback(feature_name, prev_btn_pa, next_btn_pa):
+            def _player_analysis_callback(
+                player_name,
+                prev_btn_pa,
+                next_btn_pa,
+                feature_name,
+                prev_btn_ps,
+                next_btn_ps,
+            ):
                 # TODO: graph player stats on a weekly basis
                 # TODO: table showing next fixtures, difficulty & percentage at home
                 ctx = callback_context
+                player_name = _dropdown(
+                    player_name,
+                    self.player_analysis_list,
+                    ctx,
+                    "prev_btn_ps",
+                    "next_btn_ps",
+                )
                 feature_name = _dropdown(
-                    feature_name, self.league_options, ctx, "prev_btn_pa", "next_btn_pa"
+                    feature_name,
+                    self.player_analysis_features,
+                    ctx,
+                    "prev_btn_pa",
+                    "next_btn_pa",
                 )
 
                 # Graph showing player stats on a weekly basis
-                player_df = self.recent_df[feature_name].query("")
+                player_df = self.recent_df.query("`full name` == @player_name")[
+                    ["round", feature_name]
+                ]
+                print(player_df)
+                print(player_name)
                 # px.
-                player_graph = px.line(self.recent_df, x="round", y=feature_name)
+                player_graph = px.line(player_df, x="round", y=feature_name)
 
-                upcoming_tbl = self.upcoming_fixtures_df
+                upcoming_tbl = (
+                    self.upcoming_fixtures_df
+                ).query("`full name` == @player_name")
 
-                return [player_graph, upcoming_tbl, feature_name]
+                return [player_graph, upcoming_tbl.to_dict("records"), player_name, feature_name, ]
 
     def full_report(self, user_id: int, top_n: int = 1_000) -> None:
         """
