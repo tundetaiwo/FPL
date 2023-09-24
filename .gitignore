@@ -9,3 +9,4 @@ settings.json
 /*.pkl
 *.pyc
 /data
+/.cache/*
