@@ -341,24 +341,6 @@ class FPLReport:
                 value="overall_summary",
                 children=html.Div(
                     [
-                        html.H2("Feature"),
-                        dcc.Dropdown(
-                            options=self.core_fields,
-                            value=self.core_fields[0],
-                            id="summary_dropdown",
-                        ),
-                        html.Button("<- Prev", id="prev_btn_ws", n_clicks=0),
-                        html.Button("-> Next", id="next_btn_ws", n_clicks=0),
-                        daq.BooleanSwitch(id="summary_boolswitch", on=True),
-                        html.H2("Position"),
-                        dcc.Dropdown(
-                            options=self.pos_list,
-                            value=self.pos_list,
-                            id="summary_pos_dd",
-                            multi=True,
-                        ),
-                        html.Br(),
-                        dash_table.DataTable(id="summary_dt", page_size=10),
                         html.Div(
                             [
                                 html.Div(
@@ -410,6 +392,24 @@ class FPLReport:
                             ],
                             style={"text-align": "center"},
                         ),
+                        html.H2("Feature"),
+                        dcc.Dropdown(
+                            options=self.core_fields,
+                            value=self.core_fields[0],
+                            id="summary_dropdown",
+                        ),
+                        html.Button("<- Prev", id="prev_btn_ws", n_clicks=0),
+                        html.Button("-> Next", id="next_btn_ws", n_clicks=0),
+                        daq.BooleanSwitch(id="summary_boolswitch", on=True),
+                        html.H2("Position"),
+                        dcc.Dropdown(
+                            options=self.pos_list,
+                            value=self.pos_list,
+                            id="summary_pos_dd",
+                            multi=True,
+                        ),
+                        html.Br(),
+                        dash_table.DataTable(id="summary_dt", page_size=10),
                     ]
                 ),
             )
