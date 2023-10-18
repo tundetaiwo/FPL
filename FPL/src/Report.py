@@ -106,7 +106,6 @@ class FPLReport:
         )
         return league_player_tbl
 
-    
     def generate_summary(self, refresh: int = 60):
         """
         Method to create top n
@@ -121,6 +120,7 @@ class FPLReport:
         `None`
 
         """
+
         @dir_cache(refresh=refresh)
         def _generate_summary():
             self_dict = {}
@@ -198,7 +198,6 @@ class FPLReport:
         for name, attr in self_dict.items():
             setattr(self, name, attr)
 
-
     def generate_top_managers(self, n: int = 1000, refresh: int = 60):
         """
 
@@ -218,9 +217,7 @@ class FPLReport:
         def _generate_top_managers(n: int):
             self_dict = {}
             self_dict["_top_players_flag"] = True
-            self_dict["overall_top_n_tbl"] = self._get_league_player_ownership(
-                314, n
-            )
+            self_dict["overall_top_n_tbl"] = self._get_league_player_ownership(314, n)
             self_dict["overall_top_n_bar"] = px.bar(
                 self_dict["overall_top_n_tbl"].head(30),
                 # self.overall_top_n_tbl.query("count > 50"),
@@ -357,7 +354,7 @@ class FPLReport:
             league_ids = get_user_leagues_id(id)
             league_data = get_league_data(league_ids)
             self_dict = {}
-            self_dict["user_league_standing_tbls"]={}
+            self_dict["user_league_standing_tbls"] = {}
 
             for data in league_data:
                 league_name = data["league"]["name"]
@@ -866,7 +863,7 @@ class FPLReport:
         `None`
 
         """
-        clear_dir_cache("./cache")
+        clear_dir_cache()
 
 
 if __name__ == "__main__":
