@@ -2,7 +2,6 @@
 import time
 import webbrowser
 from typing import Dict, List, Optional
-from functools import lru_cache
 
 import dash_bootstrap_components as dbc
 import dash_daq as daq
@@ -23,7 +22,14 @@ from FPL.src import (
     get_users,
     get_users_id,
 )
-from FPL.utils import POS_DICT, _get_api_url, fetch_request, get_current_gw, dir_cache
+from FPL.utils import (
+    POS_DICT,
+    _get_api_url,
+    dir_cache,
+    fetch_request,
+    get_current_gw,
+    clear_dir_cache,
+)
 from tools.get_lan_ip import get_lan_ip
 
 
@@ -100,113 +106,143 @@ class FPLReport:
         )
         return league_player_tbl
 
-    def generate_summary(self):
+    
+    def generate_summary(self, refresh: int = 60):
         """
-        method to create top n
-        Parameters
-        ----------
-        `param1 (type)`:
-
-        Return
-        ------
-        `return`:
-
-        """
-
-        self._general_summary_flag = True
-
-        # get bootstrap dataframe
-        self.teams_id_dict = get_team_id_dict()
-        # TODO: delete??
-        bootstrap_df: pd.DataFrame = basic_player_df()
-        # fields that are always shown
-        # TODO: maybe create overall rename dict and place in utils/definitions?
-        always_fields_dict = {
-            "full_name": "full name",
-            "team": "team",
-            "element_type": "position",
-            "now_cost": "price",
-        }
-
-        core_fields_dict = {
-            "event_points": "points this week",
-            "points_per_game": "points per game",
-            "total_points": "total points",
-            "form": "form",
-            "value_form": "value form",
-            "yellow_cards": "yellow cards",
-            "red_cards": "red cards",
-            "goals_scored": "goals scored",
-            "expected_goals": "expected goals",
-            "expected_goals_per_90": "expected goals per 90",
-            "assists": "assists",
-        }
-
-        transfer_fields_dict = {
-            "selected_by_percent": "ownership (%)",
-            "transfers_in_event": "transfers in event",
-            "transfers_out_event": "transfers out event",
-        }
-        self.gk_fields = [
-            "saves",
-            "saves_per_90",
-            "clean_sheets",
-            "clean_sheets_per_90",
-        ]
-        self.def_fields = [
-            "clean_sheets",
-            "clean_sheets_per_90",
-        ]
-        bootstrap_df["full_name"] = (
-            bootstrap_df["first_name"] + " " + bootstrap_df["second_name"]
-        )
-
-        # -- bootstrap dataframme cleanup -- #
-        self.bootstrap_df = (
-            bootstrap_df.rename(
-                columns=dict(
-                    **core_fields_dict, **always_fields_dict, **transfer_fields_dict
-                )
-            )
-            .astype({"ownership (%)": float})
-            .replace({"team": self.teams_id_dict, "position": POS_DICT})
-            .assign(price=lambda x: x["price"] / 10)
-        )
-
-        self.core_fields = list(core_fields_dict.values())
-        self.always_fields = list(always_fields_dict.values())
-        self.transfer_fields = list(transfer_fields_dict.values())
-
-        # Positions
-        self.pos_list = list(POS_DICT.values())
-
-    def generate_top_managers(self, n: int = 1000):
-        """
+        Method to create top n
 
         Parameters
         ----------
-        `n (int)`: number of top players to find, for example if 1000 then will extract data for top 1000 ranked players
+
+        `refresh (int)`: time (minutes) to check since last save, default=60
 
         Return
         ------
         `None`
 
         """
-        self._top_players_flag = True
-        self.overall_top_n_tbl = self._get_league_player_ownership(314, n)
-        self.overall_top_n_bar = px.bar(
-            self.overall_top_n_tbl.head(30),
-            # self.overall_top_n_tbl.query("count > 50"),
-            x="player",
-            y="ownership (%)",
-            title=f"Top {n} ownership",
-        )
-        self.n = n
+        @dir_cache(refresh=refresh)
+        def _generate_summary():
+            self_dict = {}
+            self_dict["_general_summary_flag"] = True
 
-    @dir_cache(refresh=10)
+            # get bootstrap dataframe
+            self_dict["teams_id_dict"] = get_team_id_dict()
+            # TODO: delete??
+            bootstrap_df: pd.DataFrame = basic_player_df()
+            # fields that are always shown
+            # TODO: maybe create overall rename dict and place in utils/definitions?
+            always_fields_dict = {
+                "full_name": "full name",
+                "team": "team",
+                "element_type": "position",
+                "now_cost": "price",
+            }
+
+            core_fields_dict = {
+                "event_points": "points this week",
+                "points_per_game": "points per game",
+                "total_points": "total points",
+                "form": "form",
+                "value_form": "value form",
+                "yellow_cards": "yellow cards",
+                "red_cards": "red cards",
+                "goals_scored": "goals scored",
+                "expected_goals": "expected goals",
+                "expected_goals_per_90": "expected goals per 90",
+                "assists": "assists",
+            }
+
+            transfer_fields_dict = {
+                "selected_by_percent": "ownership (%)",
+                "transfers_in_event": "transfers in event",
+                "transfers_out_event": "transfers out event",
+            }
+            self_dict["gk_fields"] = [
+                "saves",
+                "saves_per_90",
+                "clean_sheets",
+                "clean_sheets_per_90",
+            ]
+            self_dict["def_fields"] = [
+                "clean_sheets",
+                "clean_sheets_per_90",
+            ]
+            bootstrap_df["full_name"] = (
+                bootstrap_df["first_name"] + " " + bootstrap_df["second_name"]
+            )
+
+            # -- bootstrap dataframme cleanup -- #
+            self_dict["bootstrap_df"] = (
+                bootstrap_df.rename(
+                    columns=dict(
+                        **core_fields_dict, **always_fields_dict, **transfer_fields_dict
+                    )
+                )
+                .astype({"ownership (%)": float})
+                .replace({"team": self_dict["teams_id_dict"], "position": POS_DICT})
+                .assign(price=lambda x: x["price"] / 10)
+            )
+
+            self_dict["core_fields"] = list(core_fields_dict.values())
+            self_dict["always_fields"] = list(always_fields_dict.values())
+            self_dict["transfer_fields"] = list(transfer_fields_dict.values())
+
+            # Positions
+            self_dict["pos_list"] = list(POS_DICT.values())
+
+            return self_dict
+
+        # do this way in order to cache inner function
+        self_dict = _generate_summary()
+        for name, attr in self_dict.items():
+            setattr(self, name, attr)
+
+
+    def generate_top_managers(self, n: int = 1000, refresh: int = 60):
+        """
+
+        Parameters
+        ----------
+        `n (int)`: number of top players to find, for example if 1000 then will extract data for top 1000 ranked players
+
+        `refresh (int)`: time (minutes) to check since last save, default=60
+
+        Return
+        ------
+        `None`
+
+        """
+
+        @dir_cache(refresh=refresh)
+        def _generate_top_managers(n: int):
+            self_dict = {}
+            self_dict["_top_players_flag"] = True
+            self_dict["overall_top_n_tbl"] = self._get_league_player_ownership(
+                314, n
+            )
+            self_dict["overall_top_n_bar"] = px.bar(
+                self_dict["overall_top_n_tbl"].head(30),
+                # self.overall_top_n_tbl.query("count > 50"),
+                x="player",
+                y="ownership (%)",
+                title=f"Top {n} ownership",
+            )
+            self_dict["n"] = n
+            return self_dict
+
+        # do this way in order to cache inner function
+        self_dict = _generate_top_managers(n)
+        for name, attr in self_dict.items():
+            setattr(self, name, attr)
+
     def generate_player_analysis(
-        self, players: Optional[List[str] | List[int]] = None, gw: int = None, window=5
-    ) -> None:
+        self,
+        players: Optional[List[str] | List[int]] = None,
+        gw: int = None,
+        window: int = 5,
+        refresh: int = 30,
+    ):
         """
         Method to generate analysis information of premier league players
 
@@ -215,8 +251,10 @@ class FPLReport:
         `players (List[str])`: list of players to perform analysis on
 
         `gw (int)`: upper limit of gameweek to look at, if None then looks at most recent gameweek. Defualt=None
-        
+
         `window (int)`: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
+
+        `refresh (int)`: time (minutes) to check since last save, default=30
 
         Return
         ------
@@ -224,67 +262,81 @@ class FPLReport:
 
         """
 
-        if gw is None:
-            gw = self.gw
+        @dir_cache(refresh=refresh)
+        def _generate_player_analysis(
+            players: List[str] | List[int], gw: int, window=5
+        ) -> None:
+            if gw is None:
+                gw = self.gw
 
-        id_dict = get_player_id_dict()
-        if players is None:
-            players = list(id_dict.keys())
+            id_dict = get_player_id_dict()
+            if players is None:
+                players = list(id_dict.keys())
 
-        # if passing a list of players names replace names with ids
-        if all(isinstance(ele, str) for ele in players):
-            player_dict = get_player_id_dict(reverse=True)
-            try:
-                players = [player_dict[name] for name in players]
+            # if passing a list of players names replace names with ids
+            if all(isinstance(ele, str) for ele in players):
+                player_dict = get_player_id_dict(reverse=True)
+                try:
+                    players = [player_dict[name] for name in players]
 
-            except KeyError as err:
+                except KeyError as err:
+                    raise ValueError(
+                        """Player name cannot be found in player 
+                                    id dictionary, please make sure player plays 
+                                    for premier league or make sure id dictionary is up to date."""
+                    ) from err
+            elif not all(isinstance(ele, int) for ele in players):
+                raise ValueError("IDs must be either all strings or all integers.")
+
+            # calculating max like this is fairly inexpensive
+            if any(ID > max(players) or ID <= 0 for ID in players):
                 raise ValueError(
-                    """Player name cannot be found in player 
-                                id dictionary, please make sure player plays 
-                                for premier league or make sure id dictionary is up to date."""
-                ) from err
-        elif not all(isinstance(ele, int) for ele in players):
-            raise ValueError("IDs must be either all strings or all integers.")
+                    "IDs in list do not lie within id dictionary, please consult with get_player_id_dict method."
+                )
 
-        # calculating max like this is fairly inexpensive
-        if any(ID > max(players) or ID <= 0 for ID in players):
-            raise ValueError(
-                "IDs in list do not lie within id dictionary, please consult with get_player_id_dict method."
+            data = get_player_info(players)
+            player_df = pd.DataFrame()
+            fixtures_df = pd.DataFrame()
+            for player in tqdm(data, "Player Analysis: "):
+                player_name = id_dict[player["history"][0]["element"]]
+                player_df = pd.concat([player_df, pd.DataFrame(player["history"])])
+
+                df = pd.DataFrame(player["fixtures"])
+                df["full name"] = id_dict[player["history"][0]["element"]]
+                fixtures_df = pd.concat([fixtures_df, df])
+
+            player_df.reset_index()
+            fixtures_df.reset_index()
+
+            self_dict = {}
+            self_dict["recent_df"] = player_df.query(
+                f"round > {gw - window} and round <= {gw}"
             )
 
-        data = get_player_info(players)
-        player_df = pd.DataFrame()
-        fixtures_df = pd.DataFrame()
-        for player in tqdm(data, "Player Analysis: "):
-            player_name = id_dict[player["history"][0]["element"]]
-            player_df = pd.concat([player_df, pd.DataFrame(player["history"])])
+            self_dict["player_analysis_features"] = self_dict[
+                "recent_df"
+            ].columns.tolist()
+            self_dict["player_analysis_list"] = [id_dict[ID] for ID in players]
 
-            df = pd.DataFrame(player["fixtures"])
-            df["full name"] = id_dict[player["history"][0]["element"]]
-            fixtures_df = pd.concat([fixtures_df, df])
+            self_dict["recent_df"].loc[:, "full name"] = (
+                self_dict["recent_df"].loc[:, "element"].replace(id_dict)
+            )
 
-        player_df.reset_index()
-        fixtures_df.reset_index()
+            # TODO: maybe want to up window from 10 to either <window> or 15?
+            self_dict["upcoming_fixtures_df"] = (
+                fixtures_df.query(f"event < {gw + 10}")
+                .loc[:, ["full name", "event", "difficulty", "id", "is_home"]]
+                .sort_values(by="event")
+            )
+            self_dict["_player_analysis_flag"] = True
+            return self_dict
 
-        self.recent_df = player_df.query(f"round > {gw - window} and round <= {gw}")
+        # do this way in order to cache inner function
+        self_dict = _generate_player_analysis(players, gw, window)
+        for name, attr in self_dict.items():
+            setattr(self, name, attr)
 
-        self.player_analysis_features = self.recent_df.columns.tolist()
-        self.player_analysis_list = [id_dict[ID] for ID in players]
-
-        self.recent_df.loc[:, "full name"] = self.recent_df.loc[:, "element"].replace(
-            id_dict
-        )
-
-        # TODO: maybe want to up window from 10 to either <window> or 15?
-        self.upcoming_fixtures_df = (
-            fixtures_df.query(f"event < {gw + 10}")
-            .loc[:, ["full name", "event", "difficulty", "id", "is_home"]]
-            .sort_values(by="event")
-        )
-        self._player_analysis_flag = True
-        return None
-
-    def generate_leagues(self, id: Optional[List[int]] = None):
+    def generate_leagues(self, id: Optional[List[int]] = None, refresh: int = 120):
         """
         Method to generate information on leagues
 
@@ -292,47 +344,59 @@ class FPLReport:
         ----------
         `id (List[int])`: player id to get league information
 
+        `refresh (int)`: time (minutes) to check since last save. Setting to 0 will force a cache miss, default=120
+
         Return
         ------
         `None`
 
         """
-        league_ids = get_user_leagues_id(id)
-        league_data = get_league_data(league_ids)
 
-        for data in league_data:
-            league_name = data["league"]["name"]
-            league_id = data["league"]["id"]
-            self.user_league_standing_tbls[league_name] = pd.DataFrame(
-                data["standings"]["results"]
-            )[
-                [
-                    "rank",
-                    "player_name",
-                    "entry_name",
-                    "event_total",
-                    "total",
-                ]
-            ].rename(
-                columns={
-                    "player_name": "player name",
-                    "entry_name": "team name",
-                    "last_rank": "previous_rank",
-                    "event_total": "round total",
-                }
-            )
-            tbl = self._get_league_player_ownership(league_id, 300)
-            self.user_league_ownership_graphs[league_name] = px.bar(
-                tbl.head(50),
-                x="player",
-                y="ownership (%)",
-                # y="count",
-                title=f"{league_name} ownership",
-            )
-            self.user_league_ownership_tbls[league_name] = tbl
+        @dir_cache(refresh=refresh)
+        def _generate_leagues(id: List[int]):
+            league_ids = get_user_leagues_id(id)
+            league_data = get_league_data(league_ids)
+            self_dict = {}
+            self_dict["user_league_standing_tbls"]={}
 
-        self._leagues_generated_flag = True
-        return None
+            for data in league_data:
+                league_name = data["league"]["name"]
+                league_id = data["league"]["id"]
+                self_dict["user_league_standing_tbls"][league_name] = pd.DataFrame(
+                    data["standings"]["results"]
+                )[
+                    [
+                        "rank",
+                        "player_name",
+                        "entry_name",
+                        "event_total",
+                        "total",
+                    ]
+                ].rename(
+                    columns={
+                        "player_name": "player name",
+                        "entry_name": "team name",
+                        "last_rank": "previous_rank",
+                        "event_total": "round total",
+                    }
+                )
+                tbl = self._get_league_player_ownership(league_id, 300)
+                self_dict["user_league_ownership_graphs"][league_name] = px.bar(
+                    tbl.head(50),
+                    x="player",
+                    y="ownership (%)",
+                    # y="count",
+                    title=f"{league_name} ownership",
+                )
+                self_dict["user_league_ownership_tbls"][league_name] = tbl
+
+            self_dict["_leagues_generated_flag"] = True
+            return self_dict
+
+        # do this way in order to cache inner function
+        self_dict = _generate_leagues(id)
+        for name, attr in self_dict.items():
+            setattr(self, name, attr)
 
     def _build_tabs(self) -> None:
         if self._general_summary_flag:
@@ -763,7 +827,8 @@ class FPLReport:
         open_window: bool = True,
         debug: bool = False,
     ) -> None:
-        """Function to run dashboard
+        """
+        Function to run dashboard
 
         Parameters
         ----------
@@ -788,6 +853,20 @@ class FPLReport:
         if open_window:
             webbrowser.open_new_tab(url=f"http://{host}:{port}/")
         self.app.run(host=host, port=port, debug=debug)
+
+    def clear_cache(self):
+        """
+        Clear the directory class is using to cache function calls
+
+        Parameters
+        ----------
+
+        Return
+        ------
+        `None`
+
+        """
+        clear_dir_cache("./cache")
 
 
 if __name__ == "__main__":
