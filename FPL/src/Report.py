@@ -746,9 +746,7 @@ class FPLReport:
                     ["round", feature_name]
                 ]
                 player_graph = px.line(player_df, x="round", y=feature_name)
-                player_graph.update_layout(
-                    xaxis=dict(tickmode="linear", tick0=0.5, dtick=0.75)
-                )
+                player_graph.update_layout(xaxis=dict(tickmode="linear", dtick=1))
 
                 upcoming_tbl = (
                     (self.upcoming_fixtures_df)
