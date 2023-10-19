@@ -355,6 +355,8 @@ class FPLReport:
             league_data = get_league_data(league_ids)
             self_dict = {}
             self_dict["user_league_standing_tbls"] = {}
+            self_dict["user_league_ownership_tbls"] = {}
+            self_dict["user_league_ownership_graphs"] = {}
 
             for data in league_data:
                 league_name = data["league"]["name"]
@@ -744,6 +746,9 @@ class FPLReport:
                     ["round", feature_name]
                 ]
                 player_graph = px.line(player_df, x="round", y=feature_name)
+                player_graph.update_layout(
+                    xaxis=dict(tickmode="linear", tick0=0.5, dtick=0.75)
+                )
 
                 upcoming_tbl = (
                     (self.upcoming_fixtures_df)
