@@ -25,10 +25,10 @@ from FPL.src import (
 from FPL.utils import (
     POS_DICT,
     _get_api_url,
+    clear_dir_cache,
     dir_cache,
     fetch_request,
     get_current_gw,
-    clear_dir_cache,
 )
 from tools.get_lan_ip import get_lan_ip
 
@@ -773,9 +773,9 @@ class FPLReport:
 
         """
         self.generate_summary()
+        self.generate_player_analysis()
         self.generate_top_managers(n=top_n)
         self.generate_leagues(id=user_id)
-        self.generate_player_analysis()
 
     def _prepare_run(self) -> None:
         """
