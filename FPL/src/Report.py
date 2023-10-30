@@ -482,7 +482,7 @@ class FPLReport:
                 self.overall_top_n_tbl.to_dict("records"), id="top_n_tbl", page_size=10
             )
             self.tab["overall_top_n"] = dcc.Tab(
-                label="Top N Managers",
+                label=f"Top {self.n} Managers",
                 value="overall_top_n",
                 children=html.Div(
                     [
