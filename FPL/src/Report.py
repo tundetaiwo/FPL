@@ -120,6 +120,8 @@ class FPLReport:
         `None`
 
         """
+        if refresh is None:
+            refresh = 60
 
         @dir_cache(refresh=refresh)
         def _generate_summary():
@@ -212,6 +214,8 @@ class FPLReport:
         `None`
 
         """
+        if refresh is None:
+            refresh = 60
 
         @dir_cache(refresh=refresh)
         def _generate_top_managers(n: int):
@@ -231,6 +235,7 @@ class FPLReport:
         # do this way in order to cache inner function
         self_dict = _generate_top_managers(n)
         for name, attr in self_dict.items():
+            print(name)
             setattr(self, name, attr)
 
     def generate_player_analysis(
@@ -258,6 +263,9 @@ class FPLReport:
         `None`
 
         """
+
+        if refresh is None:
+            refresh = 30
 
         @dir_cache(refresh=refresh)
         def _generate_player_analysis(
@@ -348,6 +356,9 @@ class FPLReport:
         `None`
 
         """
+
+        if refresh is None:
+            refresh = 120
 
         @dir_cache(refresh=refresh)
         def _generate_leagues(id: List[int]):
@@ -761,7 +772,7 @@ class FPLReport:
                     feature_name,
                 ]
 
-    def full_report(self, user_id: int, top_n: int = 1_000) -> None:
+    def full_report(self, user_id: int, top_n: int = 1_000, refresh=None) -> None:
         """
 
         Parameters
@@ -770,15 +781,17 @@ class FPLReport:
 
         `user_id (int)`: user id to get league information
 
+        `refresh (int)`: time (minutes) to check since last save, default=None
+
         Return
         ------
         `None`
 
         """
-        self.generate_summary()
-        self.generate_player_analysis()
-        self.generate_top_managers(n=top_n)
-        self.generate_leagues(id=user_id)
+        self.generate_summary(refresh=refresh)
+        self.generate_player_analysis(refresh=refresh)
+        self.generate_top_managers(n=top_n, refresh=refresh)
+        self.generate_leagues(id=user_id, refresh=refresh)
 
     def _prepare_run(self) -> None:
         """
