@@ -581,7 +581,29 @@ class FPLReport:
 
         """
 
-        def _dropdown(dd_feature, dd_list, ctx, prev_id, next_id):
+        def _dropdown(
+            dd_feature: str, dd_list: List[str], ctx, prev_id: str, next_id: str
+        ):
+            """
+            Function to interact dropdown lists with corresponding prev and next buttions
+
+            Parameters
+            ----------
+            `dd_feature (str)`: dropdown feature
+
+            `dd_list (List[str])`: dropdown list options
+
+            `ctx (Any)`: callback context
+
+            `prev_id (str)`: id of prev button
+
+            `next_id (str)`: id of next button
+
+            Return
+            ------
+            `str`
+
+            """
             if ctx.triggered_id == f"{prev_id}":
                 if dd_list.index(dd_feature) == 0:
                     dd_feature = dd_list[-1]
