@@ -69,8 +69,11 @@ class FPLReport:
         self.player_analysis_features: List[str] = None
         self.player_analysis_list: List[str] = None
 
-    def _get_league_player_ownership(self, league_id: int, n) -> pd.DataFrame:
+    def _get_league_player_ownership(
+        self, league_id: int, n: int, refresh: int = 60
+    ) -> pd.DataFrame:
         """
+        Method that retrieves the ownership of players for managers belonging to a given league id
 
         Parameters
         ----------
@@ -78,14 +81,16 @@ class FPLReport:
 
         `n (int)`: cap to put on number of top players to extract from league
 
+        `refresh (int)`: time (minutes) to check since last save, default=60
+
         Return
         ------
         `pd.DataFrame`: dataframe of player ownership within that specific league
 
         """
 
-        user_id = get_users_id(league_id=league_id, top_n=n)
-        users = get_users(user_id, self.gw)
+        user_id = get_users_id(league_id=league_id, top_n=n, refresh=refresh)
+        users = get_users(user_id, self.gw, refresh=refresh)
 
         user_players = []
         for user in users:
@@ -217,26 +222,18 @@ class FPLReport:
         if refresh is None:
             refresh = 60
 
-        @dir_cache(refresh=refresh)
-        def _generate_top_managers(n: int):
-            self_dict = {}
-            self_dict["_top_players_flag"] = True
-            self_dict["overall_top_n_tbl"] = self._get_league_player_ownership(314, n)
-            self_dict["overall_top_n_bar"] = px.bar(
-                self_dict["overall_top_n_tbl"].head(30),
-                # self.overall_top_n_tbl.query("count > 50"),
-                x="player",
-                y="ownership (%)",
-                title=f"Top {n} ownership",
-            )
-            self_dict["n"] = n
-            return self_dict
-
-        # do this way in order to cache inner function
-        self_dict = _generate_top_managers(n)
-        for name, attr in self_dict.items():
-            print(name)
-            setattr(self, name, attr)
+        self._top_players_flag = True
+        self.overall_top_n_tbl = self._get_league_player_ownership(
+            314, n, refresh=refresh
+        )
+        self.overall_top_n_bar = px.bar(
+            self.overall_top_n_tbl.head(30),
+            # self.overall_top_n_tbl.query("count > 50"),
+            x="player",
+            y="ownership (%)",
+            title=f"Top {n} ownership",
+        )
+        self.n = n
 
     def generate_player_analysis(
         self,
@@ -360,19 +357,17 @@ class FPLReport:
         if refresh is None:
             refresh = 120
 
-        @dir_cache(refresh=refresh)
-        def _generate_leagues(id: List[int]):
-            league_ids = get_user_leagues_id(id)
-            league_data = get_league_data(league_ids)
-            self_dict = {}
-            self_dict["user_league_standing_tbls"] = {}
-            self_dict["user_league_ownership_tbls"] = {}
-            self_dict["user_league_ownership_graphs"] = {}
+        league_ids = get_user_leagues_id(id, refresh=refresh)
+        league_data = get_league_data(league_ids, refresh=refresh)
+        self.user_league_standing_tbls = {}
+        self.user_league_ownership_tbls = {}
+        self.user_league_ownership_graphs = {}
 
-            for data in league_data:
+        for data in league_data:
+            if data.get("league") is not None:
                 league_name = data["league"]["name"]
                 league_id = data["league"]["id"]
-                self_dict["user_league_standing_tbls"][league_name] = pd.DataFrame(
+                self.user_league_standing_tbls[league_name] = pd.DataFrame(
                     data["standings"]["results"]
                 )[
                     [
@@ -391,22 +386,16 @@ class FPLReport:
                     }
                 )
                 tbl = self._get_league_player_ownership(league_id, 300)
-                self_dict["user_league_ownership_graphs"][league_name] = px.bar(
+                self.user_league_ownership_graphs[league_name] = px.bar(
                     tbl.head(50),
                     x="player",
                     y="ownership (%)",
                     # y="count",
                     title=f"{league_name} ownership",
                 )
-                self_dict["user_league_ownership_tbls"][league_name] = tbl
+                self.user_league_ownership_tbls[league_name] = tbl
 
-            self_dict["_leagues_generated_flag"] = True
-            return self_dict
-
-        # do this way in order to cache inner function
-        self_dict = _generate_leagues(id)
-        for name, attr in self_dict.items():
-            setattr(self, name, attr)
+            self._leagues_generated_flag = True
 
     def _build_tabs(self) -> None:
         if self._general_summary_flag:
@@ -880,21 +869,3 @@ class FPLReport:
 
         """
         clear_dir_cache()
-
-
-if __name__ == "__main__":
-    import pickle
-    from pprint import pprint
-
-    # Tunde user id
-    rpt = FPLReport()
-
-    # rpt.generate_leagues(tunde_id)
-
-    # pprint(data)
-
-    tunde_id = 5770588
-    rpt.generate_player_analysis([10, 13, 131, 99])
-    rpt.full_report(top_n=100, user_id=tunde_id)
-    # rpt.generate_leagues(tunde_id)
-    rpt.run(debug=True, open_window=False)

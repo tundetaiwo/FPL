@@ -7,10 +7,11 @@ from aiohttp import ClientSession
 
 from FPL.src.teams import get_team_id_dict
 from FPL.utils._get_api_url import _get_api_url
+from FPL.utils.caching import dir_cache
 from FPL.utils.fetch import fetch_request, fetch_request_async
 
 
-# TODO should I make async??
+@dir_cache(refresh=20)
 def basic_player_df() -> pd.DataFrame:
     """
     Function that returns the current summary of players
@@ -81,7 +82,7 @@ def get_player_id_dict(reverse: bool = False) -> Dict[str, int] | Dict[int, str]
     return id_dict
 
 
-def get_player_info(ids: List[int] | List[str] = None) -> List[Dict]:
+def get_player_info(ids: List[int] | List[str] = None, refresh: int = 60) -> List[Dict]:
     """
     Method to extract information for player(s), such as recent form.
 
@@ -89,23 +90,29 @@ def get_player_info(ids: List[int] | List[str] = None) -> List[Dict]:
     ----------
     `player (str)`: Name of player to extract FPL information, defaults to None
 
+    `refresh (int)`: time (minutes) to check since last save, default=60
+
     Return
     ------
     `List[Dict]`: dictionary of player stats.
 
     """
 
-    async def _get_player_info(ids: List[int]):
-        """
-        Function to retrieve
-        """
+    @dir_cache(refresh=refresh)
+    def _get_player_info(ids: List[int | List[str]]) -> List[Dict]:
+        async def _get_player_info_async(ids: List[int]):
+            """
+            Function to retrieve
+            """
 
-        urls = [_get_api_url("element", id) for id in ids]
-        async with ClientSession() as session:
-            tasks = [fetch_request_async(url, session) for url in urls]
-            data = await asyncio.gather(*tasks)
+            urls = [_get_api_url("element", id) for id in ids]
+            async with ClientSession() as session:
+                tasks = [fetch_request_async(url, session) for url in urls]
+                data = await asyncio.gather(*tasks)
+            return data
+
+        data = asyncio.run(_get_player_info_async(ids))
+
         return data
 
-    data = asyncio.run(_get_player_info(ids))
-
-    return data
+    return _get_player_info(ids)
