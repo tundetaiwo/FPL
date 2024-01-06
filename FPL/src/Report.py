@@ -209,7 +209,7 @@ class FPLReport:
 
         """
         if refresh is None:
-            refresh = 60
+            refresh = 600
 
         self._top_players_flag = True
         self.overall_top_n_tbl = self._get_league_player_ownership(
