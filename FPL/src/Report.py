@@ -281,7 +281,7 @@ class FPLReport:
                 "IDs in list do not lie within id dictionary, please consult with get_player_id_dict method."
             )
 
-        data = get_player_info(players)
+        data = get_player_info(players, refresh=refresh)
         player_df = pd.DataFrame()
         fixtures_df = pd.DataFrame()
         for player in tqdm(data, "Player Analysis: "):
