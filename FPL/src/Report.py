@@ -536,6 +536,7 @@ class FPLReport:
                         # player selection dropdown
                         html.Button("<- Prev", id="prev_btn_ps", n_clicks=0),
                         html.Button("-> Next", id="next_btn_ps", n_clicks=0),
+                        html.H4("Next 5 Games"),
                         dash_table.DataTable(id="player_analysis_tbl", page_size=5),
                         dcc.Dropdown(
                             options=self.player_analysis_features,
