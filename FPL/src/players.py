@@ -82,7 +82,9 @@ def get_player_id_dict(reverse: bool = False) -> Dict[str, int] | Dict[int, str]
     return id_dict
 
 
-def get_player_info(ids: List[int] | List[str] = None, refresh: int = 60) -> List[Dict]:
+def get_player_info(
+    ids: List[int] | List[str] = None, refresh: int = 60, max_attempts=1_000
+) -> List[Dict]:
     """
     Method to extract information for player(s), such as recent form.
 
@@ -91,6 +93,8 @@ def get_player_info(ids: List[int] | List[str] = None, refresh: int = 60) -> Lis
     `player (str)`: Name of player to extract FPL information, defaults to None
 
     `refresh (int)`: time (minutes) to check since last save, default=60
+
+    `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
     Return
     ------
@@ -102,12 +106,15 @@ def get_player_info(ids: List[int] | List[str] = None, refresh: int = 60) -> Lis
     def _get_player_info(ids: List[int | List[str]]) -> List[Dict]:
         async def _get_player_info_async(ids: List[int]):
             """
-            Function to retrieve
+            Function to retrieve information given player id
             """
 
             urls = [_get_api_url("element", id) for id in ids]
             async with ClientSession() as session:
-                tasks = [fetch_request_async(url, session) for url in urls]
+                tasks = [
+                    fetch_request_async(url, session, max_attempts=1_000)
+                    for url in urls
+                ]
                 data = await asyncio.gather(*tasks)
             return data
 

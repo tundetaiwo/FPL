@@ -70,7 +70,7 @@ class FPLReport:
         self.player_analysis_list: List[str] = None
 
     def _get_league_player_ownership(
-        self, league_id: int, n: int, refresh: int = 60
+        self, league_id: int, n: int, refresh: int = 60, max_attempts: int = 1_000
     ) -> pd.DataFrame:
         """
         Method that retrieves the ownership of players for managers belonging to a given league id
@@ -83,14 +83,18 @@ class FPLReport:
 
         `refresh (int)`: time (minutes) to check since last save, default=60
 
+        `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
+
         Return
         ------
         `pd.DataFrame`: dataframe of player ownership within that specific league
 
         """
 
-        user_id = get_users_id(league_id=league_id, top_n=n, refresh=refresh)
-        users = get_users(user_id, self.gw, refresh=refresh)
+        user_id = get_users_id(
+            league_id=league_id, top_n=n, refresh=refresh, max_attempts=1_000
+        )
+        users = get_users(user_id, self.gw, refresh=refresh, max_attempts=1_000)
 
         user_players = []
         for user in users:
@@ -194,7 +198,9 @@ class FPLReport:
         # Positions
         self.pos_list = list(POS_DICT.values())
 
-    def generate_top_managers(self, n: int = 1000, refresh: int = 60):
+    def generate_top_managers(
+        self, n: int = 1000, refresh: int = 60, max_attempts: int = 1_000
+    ):
         """
 
         Parameters
@@ -202,6 +208,8 @@ class FPLReport:
         `n (int)`: number of top players to find, for example if 1000 then will extract data for top 1000 ranked players
 
         `refresh (int)`: time (minutes) to check since last save, default=60
+
+        `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
         Return
         ------
@@ -213,7 +221,7 @@ class FPLReport:
 
         self._top_players_flag = True
         self.overall_top_n_tbl = self._get_league_player_ownership(
-            314, n, refresh=refresh
+            314, n, refresh=refresh, max_attempts=1_000
         )
         self.overall_top_n_bar = px.bar(
             self.overall_top_n_tbl.head(30),
@@ -230,6 +238,7 @@ class FPLReport:
         gw: int = None,
         window: int = 5,
         refresh: int = 30,
+        max_attempts: int = 1_000,
     ):
         """
         Method to generate analysis information of premier league players
@@ -243,6 +252,8 @@ class FPLReport:
         `window (int)`: window of game weeks to look back over. If current gameweek is 15 and `window=5` then function will return information from gameweek 10-15. Also is the value for future window, defaults to 5
 
         `refresh (int)`: time (minutes) to check since last save, default=30
+
+        `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
         Return
         ------
@@ -281,7 +292,7 @@ class FPLReport:
                 "IDs in list do not lie within id dictionary, please consult with get_player_id_dict method."
             )
 
-        data = get_player_info(players, refresh=refresh)
+        data = get_player_info(players, refresh=refresh, max_attempts=max_attempts)
         player_df = pd.DataFrame()
         fixtures_df = pd.DataFrame()
         for player in tqdm(data, "Player Analysis: "):
@@ -342,7 +353,12 @@ class FPLReport:
 
         self._player_analysis_flag = True
 
-    def generate_leagues(self, id: Optional[List[int]] = None, refresh: int = 120):
+    def generate_leagues(
+        self,
+        id: Optional[List[int]] = None,
+        refresh: int = 120,
+        max_attempts: int = 1_000,
+    ):
         """
         Method to generate information on leagues
 
@@ -351,6 +367,8 @@ class FPLReport:
         `id (List[int])`: player id to get league information
 
         `refresh (int)`: time (minutes) to check since last save. Setting to 0 will force a cache miss, default=120
+
+        `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
         Return
         ------
@@ -362,7 +380,9 @@ class FPLReport:
             refresh = 120
 
         league_ids = get_user_leagues_id(id, refresh=refresh)
-        league_data = get_league_data(league_ids, refresh=refresh)
+        league_data = get_league_data(
+            league_ids, refresh=refresh, max_attempts=max_attempts
+        )
         self.user_league_standing_tbls = {}
         self.user_league_ownership_tbls = {}
         self.user_league_ownership_graphs = {}
@@ -389,12 +409,13 @@ class FPLReport:
                         "event_total": "round total",
                     }
                 )
-                tbl = self._get_league_player_ownership(league_id, 300)
+                tbl = self._get_league_player_ownership(
+                    league_id, 300, max_attempts=1_000
+                )
                 self.user_league_ownership_graphs[league_name] = px.bar(
                     tbl.head(50),
                     x="player",
                     y="ownership (%)",
-                    # y="count",
                     title=f"{league_name} ownership",
                 )
                 self.user_league_ownership_tbls[league_name] = tbl
@@ -788,7 +809,9 @@ class FPLReport:
                     feature_name,
                 ]
 
-    def full_report(self, user_id: int, top_n: int = 1_000, refresh=None) -> None:
+    def full_report(
+        self, user_id: int, top_n: int = 1_000, refresh=None, max_attempts: int = 1_000
+    ) -> None:
         """
 
         Parameters
@@ -798,6 +821,8 @@ class FPLReport:
         `user_id (int)`: user id to get league information
 
         `refresh (int)`: time (minutes) to check since last save, default=None
+
+        `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
         Return
         ------

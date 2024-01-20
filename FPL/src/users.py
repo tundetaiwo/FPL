@@ -9,7 +9,7 @@ from FPL.utils.caching import dir_cache
 from FPL.utils.fetch import fetch_request, fetch_request_async
 
 
-def get_users(ids: List[int], gameweek: int, refresh: int):
+def get_users(ids: List[int], gameweek: int, refresh: int, max_attempts: int = 1_000):
     """
     Function to asynchronously retrieve user information
 
@@ -20,6 +20,8 @@ def get_users(ids: List[int], gameweek: int, refresh: int):
     `gameweek (int)`: gameweek up to, to retrieve manager team information for
 
     `refresh (int)`: time (minutes) to check since last save, default=60
+
+    `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
     Return
     ------
@@ -32,7 +34,10 @@ def get_users(ids: List[int], gameweek: int, refresh: int):
         async def _get_users_async(ids: List[int], gameweek: int):
             urls = [_get_api_url("picks", id, gameweek) for id in ids]
             async with ClientSession() as session:
-                tasks = [fetch_request_async(url, session) for url in urls]
+                tasks = [
+                    fetch_request_async(url, session, max_attempts=max_attempts)
+                    for url in urls
+                ]
                 data = await asyncio.gather(*tasks)
             return data
 
@@ -41,7 +46,9 @@ def get_users(ids: List[int], gameweek: int, refresh: int):
     return _get_users(ids, gameweek)
 
 
-def get_users_id(league_id: int, top_n: int = 50, refresh: int = 60) -> List[int]:
+def get_users_id(
+    league_id: int, top_n: int = 50, refresh: int = 60, max_attempts: int = 1_000
+) -> List[int]:
     """
     Function to asynchronously get the IDs of users within a league.
 
@@ -52,6 +59,8 @@ def get_users_id(league_id: int, top_n: int = 50, refresh: int = 60) -> List[int
     `top_n` (int): top n users to retrieve
 
     `refresh (int)`: time (minutes) to check since last save, default=60
+
+    `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
     Return
     ------
@@ -72,7 +81,10 @@ def get_users_id(league_id: int, top_n: int = 50, refresh: int = 60) -> List[int
                 _get_api_url("standings", id=league_id, page=page) for page in pages
             ]
             async with ClientSession() as session:
-                tasks = [fetch_request_async(url, session) for url in urls]
+                tasks = [
+                    fetch_request_async(url, session, max_attempts=max_attempts)
+                    for url in urls
+                ]
                 data = await asyncio.gather(*tasks)
 
             return data
@@ -120,7 +132,9 @@ def get_user_leagues_id(user_id: int, refresh: int = 0) -> List[int]:
     return _get_users_id(user_id)
 
 
-def get_league_data(ids: List[int], refresh: int = 60) -> None:
+def get_league_data(
+    ids: List[int], refresh: int = 60, max_attempts: int = 1_000
+) -> None:
     """
     Function to extract league data
 
@@ -129,6 +143,8 @@ def get_league_data(ids: List[int], refresh: int = 60) -> None:
     `ids (List[int])`: list of ids
 
     `refresh (int)`: time (minutes) to check since last save, default=60
+
+    `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
     Return
     ------
@@ -142,7 +158,10 @@ def get_league_data(ids: List[int], refresh: int = 60) -> None:
 
         async def _get_league_data(urls):
             async with ClientSession() as session:
-                tasks = [fetch_request_async(url, session) for url in urls]
+                tasks = [
+                    fetch_request_async(url, session, max_attempts=max_attempts)
+                    for url in urls
+                ]
                 data = await asyncio.gather(*tasks)
             return data
 

@@ -37,7 +37,7 @@ def fetch_request(url: str) -> JSONObject:
 async def fetch_request_async(
     url: str,
     session: ClientSession,
-    max_attempts: int = 100,
+    max_attempts: int = 1000,
 ) -> JSONObject:
     """
     Coroutine to fetch request from url
@@ -48,7 +48,7 @@ async def fetch_request_async(
 
     `session (ClientSession)`: open aiohttp ClientSession
 
-    `max_attempts (int)`: maximum number of attempts to try fetch request, default = 10
+    `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
     Return
     ------
