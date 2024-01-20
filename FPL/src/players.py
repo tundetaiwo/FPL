@@ -11,10 +11,13 @@ from FPL.utils.caching import dir_cache
 from FPL.utils.fetch import fetch_request, fetch_request_async
 
 
-@dir_cache(refresh=20)
-def basic_player_df() -> pd.DataFrame:
+def basic_player_df(refresh: int = 20) -> pd.DataFrame:
     """
     Function that returns the current summary of players
+
+    Parameters
+    ----------
+    `refresh (int)`: time (minutes) to check since last save, default=20
 
     Return
     ------
@@ -22,35 +25,40 @@ def basic_player_df() -> pd.DataFrame:
 
     """
 
-    fpl_json = fetch_request(_get_api_url("bootstrap"))
-    # fpl_json = data.loads(data.content)
+    @dir_cache(refresh=refresh)
+    def _basic_player_df():
+        fpl_json = fetch_request(_get_api_url("bootstrap"))
+        # fpl_json = data.loads(data.content)
 
-    # -- Columns we're interested in  -- #
-    columns = [
-        "first_name",
-        "second_name",
-        "points_per_game",
-        "total_points",
-        "team",
-        "now_cost",
-        "id",
-        "selected_by_percent",
-        "form",
-        "saves",
-        "saves_per_90",
-        "yellow_cards",
-        "red_cards",
-    ]
+        # -- Columns we're interested in  -- #
+        columns = [
+            "first_name",
+            "second_name",
+            "points_per_game",
+            "total_points",
+            "team",
+            "now_cost",
+            "id",
+            "selected_by_percent",
+            "form",
+            "saves",
+            "saves_per_90",
+            "yellow_cards",
+            "red_cards",
+        ]
 
-    players_df = pd.DataFrame(fpl_json["elements"])
-    columns = players_df.columns
-    players_df = players_df.sort_values(by=["form"], ignore_index=True, ascending=False)
+        players_df = pd.DataFrame(fpl_json["elements"])
+        columns = players_df.columns
+        players_df = players_df.sort_values(
+            by=["form"], ignore_index=True, ascending=False
+        )
 
-    return players_df[columns]
+        return players_df[columns]
+
+    return _basic_player_df()
 
 
 def get_player_id_dict(reverse: bool = False) -> Dict[str, int] | Dict[int, str]:
-    # async def get_player_id_dict():
     """
 
     Parameters
