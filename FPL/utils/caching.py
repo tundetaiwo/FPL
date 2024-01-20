@@ -2,6 +2,7 @@ import os
 import pickle
 import time
 from typing import Callable
+import shutil
 
 
 def dir_cache(refresh: int = 30, cache_dir: str = "./.cache") -> Callable:
@@ -61,11 +62,16 @@ def clear_dir_cache(cache_dir: str = "./.cache"):
 
     for file in os.listdir(cache_dir):
         file_path = os.path.join(cache_dir, file)
-        if file_size := os.path.getsize(file_path) > 10**6:
-            del_flag = input(
-                f"Are you sure you want to delete {file_path} {file_size=}"
+        if (file_size := os.path.getsize(file_path)) > 10**6:
+            del_flag: str = input(
+                f"""Are you sure you want to delete {file_path}? (file size={file_size/1000:.0f}KB) (Yes/No/All)\n
+                    Choose 'All' to delete for all files \n """
             )
-            if del_flag:
+            if del_flag.lower() in ["yes", "y"]:
                 os.remove(file_path)
+            elif del_flag.lower() == "all":
+                shutil.rmtree(cache_dir)
+                break
+
         else:
             os.remove(file_path)
