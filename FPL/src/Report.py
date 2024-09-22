@@ -92,9 +92,9 @@ class FPLReport:
         """
 
         user_id = get_users_id(
-            league_id=league_id, top_n=n, refresh=refresh, max_attempts=1_000
+            league_id=league_id, top_n=n, max_attempts=1_000
         )
-        users = get_users(user_id, self.gw, refresh=refresh, max_attempts=1_000)
+        users = get_users(user_id, self.gw, max_attempts=1_000)
 
         user_players = []
         for user in users:
@@ -133,7 +133,6 @@ class FPLReport:
             refresh = 60
 
         self._general_summary_flag = True
-
         # get bootstrap dataframe
         self.teams_id_dict = get_team_id_dict()
         bootstrap_df: pd.DataFrame = basic_player_df()
@@ -364,7 +363,7 @@ class FPLReport:
 
         Parameters
         ----------
-        `id (List[int])`: player id to get league information
+        `user_id (List[int])`: player id to get league information
 
         `refresh (int)`: time (minutes) to check since last save. Setting to 0 will force a cache miss, default=120
 
@@ -379,8 +378,8 @@ class FPLReport:
         if refresh is None:
             refresh = 120
 
-        league_ids = get_user_leagues_id(id, refresh=refresh)
-        league_data = get_league_data(
+        league_ids: List[int] = get_user_leagues_id(user_id, refresh=refresh)
+        league_data: List[dict] = get_league_data(
             league_ids, refresh=refresh, max_attempts=max_attempts
         )
         self.user_league_standing_tbls = {}
@@ -832,7 +831,7 @@ class FPLReport:
         self.generate_summary(refresh=refresh)
         self.generate_player_analysis(refresh=refresh)
         self.generate_top_managers(n=top_n, refresh=refresh)
-        self.generate_leagues(id=user_id, refresh=refresh)
+        self.generate_leagues(user_id=user_id, refresh=refresh)
 
     def _prepare_run(self) -> None:
         """
