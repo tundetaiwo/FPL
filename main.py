@@ -1,13 +1,15 @@
 # %%
 
 from FPL.src import FPLReport, get_user_leagues_id
+from FPL.src import FPLReport
 
 # from FPL.utils.Manager import Manager
 
 if __name__ == "__main__":
 
     refresh = 60
-    tunde_id = 5770588
+    tunde_id = 2352647
+    top_n = 1_000
 
     rpt = FPLReport()
 
