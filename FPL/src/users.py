@@ -9,7 +9,7 @@ from FPL.utils.caching import dir_cache
 from FPL.utils.fetch import fetch_request, fetch_request_async
 
 
-def get_users(ids: List[int], gameweek: int, refresh: int, max_attempts: int = 1_000):
+def get_users(ids: List[int], gameweek: int, max_attempts: int = 1_000):
     """
     Function to asynchronously retrieve user information
 
@@ -19,8 +19,6 @@ def get_users(ids: List[int], gameweek: int, refresh: int, max_attempts: int = 1
 
     `gameweek (int)`: gameweek up to, to retrieve manager team information for
 
-    `refresh (int)`: time (minutes) to check since last save, default=60
-
     `max_attempts (int)`: maximum number of attempts to try fetch request, default = 1000
 
     Return
@@ -29,7 +27,6 @@ def get_users(ids: List[int], gameweek: int, refresh: int, max_attempts: int = 1
 
     """
 
-    @dir_cache(refresh=refresh)
     def _get_users(ids: List[int], gameweek: int):
         async def _get_users_async(ids: List[int], gameweek: int):
             urls = [_get_api_url("picks", id, gameweek) for id in ids]

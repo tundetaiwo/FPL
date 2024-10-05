@@ -91,9 +91,7 @@ class FPLReport:
 
         """
 
-        user_id = get_users_id(
-            league_id=league_id, top_n=n, max_attempts=1_000
-        )
+        user_id = get_users_id(league_id=league_id, top_n=n, max_attempts=1_000)
         users = get_users(user_id, self.gw, max_attempts=1_000)
 
         user_players = []
@@ -378,7 +376,7 @@ class FPLReport:
         if refresh is None:
             refresh = 120
 
-        league_ids: List[int] = get_user_leagues_id(user_id, refresh=refresh)
+        league_ids: List[int] = get_user_leagues_id(id, refresh=refresh)
         league_data: List[dict] = get_league_data(
             league_ids, refresh=refresh, max_attempts=max_attempts
         )
@@ -387,7 +385,8 @@ class FPLReport:
         self.user_league_ownership_graphs = {}
 
         for data in league_data:
-            if data.get("league") is not None:
+            # check that league key exists and that there is an actual table for league
+            if data.get("league") is not None and data["standings"]["results"]:
                 league_name = data["league"]["name"]
                 league_id = data["league"]["id"]
                 self.user_league_standing_tbls[league_name] = pd.DataFrame(
@@ -831,7 +830,7 @@ class FPLReport:
         self.generate_summary(refresh=refresh)
         self.generate_player_analysis(refresh=refresh)
         self.generate_top_managers(n=top_n, refresh=refresh)
-        self.generate_leagues(user_id=user_id, refresh=refresh)
+        self.generate_leagues(id=user_id, refresh=refresh)
 
     def _prepare_run(self) -> None:
         """
